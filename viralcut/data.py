@@ -1,3 +1,5 @@
+import csv
+import json
 import os
 import subprocess
 import multiprocessing
@@ -106,12 +108,13 @@ def download_ncbi_genes(gene_ids):
     return gene_ids_downloaded
 
 
-def download_ncbi_assemblies(accessions, keep_exts=['fna']):
+def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
     '''Download files associated with the provided accessions to a cache.
 
     Arguments:
         accessions (list): List of NCBI accessions as strings
         keep_exts (list):  Files with these extensions will be cached
+        merge (bool):      Only cache files that have not been cached already
 
     Return:
         A list of accessions actually downloaded
@@ -126,7 +129,7 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna']):
     accs_to_download = [
         accs
         for accs in accessions
-        if not os.path.exists(get_assembly_cache(accs, mkdir=False))
+        if not os.path.exists(get_assembly_cache(accs, mkdir=False)) or merge
     ]
 
     # which means we may not have anything to download.
@@ -148,36 +151,59 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna']):
     # New instance of the NCBI API interface.
     api_instance = ncbi.datasets.GenomeApi(ncbi.datasets.ApiClient())
 
-    api_response = api_instance.download_assembly_package(
-        accs_to_download,
-        _preload_content=False
-    )
+    for start in range(0, len(accs_to_download), config.NCBI_ACCESSION_BATCH_SIZE):
+        api_response = api_instance.download_assembly_package(
+            accs_to_download[start:start+config.NCBI_ACCESSION_BATCH_SIZE],
+            _preload_content=False
+        )
 
-    # Process the downloaded data without writing it to disk, yet.
-    in_memory = BytesIO(api_response.data)
-    with zf.ZipFile(in_memory) as zfp:
-        for path in zfp.namelist():
+        # Process the downloaded data without writing it to disk, yet.
+        in_memory = BytesIO(api_response.data)
+        with zf.ZipFile(in_memory) as zfp:
+            files = zfp.namelist()
+            
+            # Extract the data report
+            if 'ncbi_dataset/data/assembly_data_report.jsonl' not in files:
+                raise RuntimeError('Critical file not provided by NCBI: `ncbi_dataset/data/assembly_data_report.jsonl`')
 
-            # Be selective in which files get cached.
-            accs = os.path.basename(os.path.dirname(path))
-            filename = os.path.basename(path)
-            cache_dir = get_assembly_cache(accs)
-            cached_file = os.path.join(cache_dir, filename)
+            dataReportByAccession = {}
+            
+            with zfp.open('ncbi_dataset/data/assembly_data_report.jsonl') as fp:
+                for line in fp:
+                    report = json.loads(line.strip())
+                    accs = report['assemblyInfo']['assemblyAccession']
+                    dataReportByAccession[accs] = report
 
-            if not('GCF' in accs or 'GCA' in accs):
-                continue
+            for path in files:
 
-            if filename.split('.')[-1] in keep_exts:
+                # Be selective in which files get cached.
+                accs = os.path.basename(os.path.dirname(path))
+                filename = os.path.basename(path)
+                cache_dir = get_assembly_cache(accs)
+                cached_file = os.path.join(cache_dir, filename)
+                cache_data_report = os.path.join(cache_dir, 'data_report.json')
 
-                # TODO: This could be replaced by `ZipFile.extract()`
-                # https://docs.python.org/3/library/zipfile.html#zipfile.ZipFile.extract
-                with zfp.open(path) as fp, open(cached_file, 'wb') as fpW:
-                    fpW.writelines(fp.readlines())
+                if not('GCF' in accs or 'GCA' in accs):
+                    continue
 
-                if config.VERBOSE:
-                    print(f'Downloaded to: {cached_file}')
+                if filename.split('.')[-1] in keep_exts:
+                
+                    if not os.path.exists(cached_file):
+                                                                                            
+                        with zfp.open(path) as fp, open(cached_file, 'wb') as fpW:
+                            fpW.writelines(fp.readlines())
+                        
+                        if config.VERBOSE:
+                            print(f'Downloaded to: {cached_file}')
+                    
+                    if not os.path.exists(cache_data_report):
+                        with open(cache_data_report, 'w') as fpW:
+                            json.dump(dataReportByAccession[accs], fpW)
+                        
+                        if config.VERBOSE:
+                            print(f'Downloaded to: {cache_data_report}')
 
-                accessions_downloaded.append(accs)
+                    accessions_downloaded.append(accs)
 
     # Done!
     return accessions_downloaded
@@ -420,3 +446,38 @@ def create_issl_indexes(accessions,
             indexesCreateFor.append(accession)
             
     return indexesCreateFor
+
+
+def get_accessions_from_ncbi_table_export(filePath, **kwargs):
+    '''The 'NCBI Genome Information by Organism' table is a good way to obtain a filtered list of
+    NCBI accessions. This method parses the CSV file that is provided when clicking 'Download' on
+    this page https://www.ncbi.nlm.nih.gov/genome/browse/. Please ensure the 'Assembly' column is
+    present before exporting.
+    
+    Arguments:
+        filePath (string): The path to the CSV file provided when Download is clicked on the webpage
+        **kwargs: Keyword arguments forwarded to `csv.reader()`
+        
+    Returns:
+        A list of NCBI accessions found in the file
+    
+    '''
+    
+    accessions = []
+    
+    # Find the `Assembly` column then extract all values in it
+    with open(filePath, 'r') as fp:
+        fp_rdr = csv.reader(fp, **kwargs)
+        idx_assembly = None
+        
+        for i, row in enumerate(fp_rdr):
+            if i == 0:
+                if 'Assembly' in row:
+                    idx_assembly = row.index('Assembly')
+                    continue
+                else:
+                    raise ValueError('The column `Assembly` must be present in the file, yet it could not be found.')
+            
+            accessions.append(row[idx_assembly])
+    
+    return accessions

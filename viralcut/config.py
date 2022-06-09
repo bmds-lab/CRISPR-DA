@@ -1,6 +1,11 @@
 # The directory to write files downloaded from NCBI to
 CACHE = '/mnt/ssd1/genomes-viruses'
 
+# When downloading through NCBI Datasets PyLib, the requested URL may be
+# rejected due to exceeding a reasonable length, if too many accessions are 
+# requested at once. To avoid this, downloads will be batched by this size.
+NCBI_ACCESSION_BATCH_SIZE = 100
+
 # When downloading NCBI assemblies, the default cacheing method creates
 # sub-directories named as the first few characters of the accession.
 # Here, specify the number of characters to use.
