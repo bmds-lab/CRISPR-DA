@@ -189,7 +189,6 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
                 if filename.split('.')[-1] in keep_exts:
                 
                     if not os.path.exists(cached_file):
-                                                                                            
                         with zfp.open(path) as fp, open(cached_file, 'wb') as fpW:
                             fpW.writelines(fp.readlines())
                         

@@ -19,6 +19,7 @@ import os
 import subprocess
 import multiprocessing
 
+from collections import namedtuple
 from glob import glob
 from tempfile import NamedTemporaryFile
 
@@ -27,6 +28,7 @@ from . import config
 from .design import process_sequence, run_mini_crackling
 from .data import *
 
+OtsScores = namedtuple('OtsScore', ['mit', 'cfd'])
 
 def _run_issl_score(accession, path_guides, path_stdout):
     # assume the index exists and there is only one.
@@ -87,19 +89,25 @@ def run_offtarget_scoring(guides, accessions, processors=0):
             p.starmap(_run_issl_score, args)
 
     # Collect all the scores
-    scores = {}
+    scores = {
+        'accession' :   [],
+        'sequence' :    [],
+        'mit' :         [],
+        'cfd' :         [],
+        'uniqueSites' : [],
+        'totalSites' :  [],
+    }
     for accs in issl_output_files:
         with open(issl_output_files[accs], 'r') as fp:
             for line in fp:
-                seq, mit, cfd, *_ = line.split('\t')
+                seq, mit, cfd, uniqueSites, totalSites, *_ = [x.strip() for x in line.split('\t')]
 
-                if seq not in scores:
-                    scores[seq] = {}
-
-                scores[seq][accs] = (
-                    float(mit),
-                    float(cfd)
-                )
+                scores['accession'].append(accs)
+                scores['sequence'].append(seq)
+                scores['mit'].append(mit)
+                scores['cfd'].append(cfd)
+                scores['uniqueSites'].append(uniqueSites)
+                scores['totalSites'].append(totalSites)
 
     return scores
 
