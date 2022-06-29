@@ -264,8 +264,8 @@ def get_properties_from_ncbi_fasta_header(header, key=None):
             acces, position = prop.split(':')
             start, end = position.split('-')
             props['accession'] = acces
-            props['start'] = int(start)
-            props['end'] = int(end)
+            props['start'] = start
+            props['end'] = end
 
         elif i == 1:
             # `E`
@@ -480,3 +480,7 @@ def get_accessions_from_ncbi_table_export(filePath, **kwargs):
             accessions.append(row[idx_assembly])
     
     return accessions
+    
+    
+def get_tax_ids_from_phylogenetic_tree_branch(node_tax_id):
+    return True
