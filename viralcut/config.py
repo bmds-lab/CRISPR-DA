@@ -1,3 +1,7 @@
+# The root taxonomy ID used. By default, the viruses superkingdom (ID 10239)
+# is the root.
+ROOT_TAX_ID = 10239
+
 # The directory to write files downloaded from NCBI to
 CACHE = '/mnt/ssd1/genomes-viruses'
 
@@ -19,10 +23,12 @@ VERBOSE = True
 CONSENSUS_N = 2
 
 # Path to the ISSL scoring binary
-BIN_ISSL_SCORE = 'isslScoreOfftargets'
+BIN_ISSL_SCORE = '/home/jake/Crackling-v2.0/bin/isslScoreOfftargets'
+BIN_ISSL_SCORE = '/mnt/hdd1/CRISPR/genomes/S-aureus-assemblies/isslScoreOfftargets_8b36d93'
 
 # Path to the ISSL indexing binary
-BIN_ISSL_IDX = 'isslCreateIndex'
+BIN_ISSL_IDX = '/home/jake/Crackling-v2.0/bin/isslCreateIndex'
 
 # Path to the CRISPR site extraction utility available in Crackling
 BIN_EXTRACT = 'extractOfftargets'
+

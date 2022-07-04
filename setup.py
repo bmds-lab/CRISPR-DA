@@ -22,7 +22,7 @@ setuptools.setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
     ],
-    packages=setuptools.find_packages(where='viralcut'),
+    packages=setuptools.find_packages(where='viralcut', exclude=['resources']),
     python_requires='>=3.8',
     entry_points = {
         'console_scripts': [

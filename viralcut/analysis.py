@@ -6,8 +6,10 @@ Author: Jake Bradford
 import os
 import json
 import operator
-
 from functools import reduce
+from collections import deque
+
+from . import config
 
 import numpy as np
 import pandas as pd
@@ -62,6 +64,305 @@ def add_assembly_info_to_dataframe(dfIn, colAccession='accession', fieldsToAdd=[
     
     return dfIn
 
+def generate_df_of_species_data_from_accessions(accessions, common_nodes=False):
+    '''This function generates a DataFrame of the data needed to visualise the
+    phylogenetic tree in a web browser.
+    
+    The columns of the DataFrame are:
+        1. taxId
+        2. commonName
+        3. species
+        4. taxonomy
+    
+    Arguments:
+        accessions (list):  The accessions for which tax IDs are identified from
+        common_nodes (bool): Also get the data for ancestory nodes of the tree
+        
+    Returns:
+        A DataFrame intended to be written as CSV
+    '''
+    
+    df = pd.DataFrame({'number' : accessions})
+    
+    add_assembly_info_to_dataframe(df, 
+        colAccession='number', 
+        fieldsToAdd=['taxId', 'commonName', 'organismName']
+    )
+    
+    df = df.astype({'taxId' : 'int32'})
+    
+    df['commonName'].fillna(df['organismName'], inplace=True)
+    
+    df['taxonomy'] = 'TODO'
+    
+    del df['number']
+    
+    return df
+
+def generate_df_of_species_data_from_tax_ids(tax_ids):
+    '''This function generates a DataFrame of the data needed to visualise the
+    phylogenetic tree in a web browser.
+    
+    The columns of the DataFrame are:
+        1. taxId
+        2. commonName
+        3. species
+        4. taxonomy
+    
+    Arguments:
+        accessions (list):  The accessions for which tax IDs are identified from
+        
+    Returns:
+        A DataFrame intended to be written as CSV
+    '''
+    
+    ncbi = NCBITaxa()
+    tree = ncbi.get_topology(tax_ids)
+    
+    tax2name, tax2track, tax2rank = ncbi.annotate_tree(tree)
+
+    df = pd.DataFrame([tax2name, tax2track, tax2rank]).T
+    df.columns = ['commonName', 'taxonomy', 'species']
+    df['taxonomy'] = 'TODO' # currently provides: [1, 10239, 687329, 227307, 12618, 73476]
+    df['species'] = df['commonName'] # currently provides: [1, 10239, 687329, 227307, 12618, 73476]
+    df['taxId'] = df.index
+    return df[['taxId', 'commonName', 'species', 'taxonomy']]
+        
+
+def get_tax_ids_from_accessions(accessions, uniq=True):
+    '''Given a list of accessions, return a list of taxonomy IDs.
+    
+    Arguments:
+        accessions (list): A list of accessions
+        uniq (bool):        If true, a set of tax IDs will be returned. Else, 
+            duplicate tax IDs may be returned.
+    
+    Returns:
+        A list or set of tax IDs (see arg `uniq`).
+    '''
+    tax_ids = []
+    for accs in set(accessions):
+        fpReport = os.path.join(get_assembly_cache(accs), 'data_report.json')
+        if os.path.exists(fpReport):
+            with open(fpReport, 'r') as fp:
+                report = json.loads(fp.readline())
+            if 'taxId' in report:
+                tax_ids.append(report['taxId'])
+            else:
+                if config.VERBOSE:
+                    print(f'Could not find taxId of {accs}')
+    
+    return tax_ids if not uniq else list(set(tax_ids))
+
+def get_descendant_tax_ids_from_root_tax_id(root_tax_id=None, max_depth=None):
+    '''Given some taxonomy ID, find the taxonomy IDs of descendant nodes
+    
+    Arguments:
+        root_tax_id (int): The root tax_id. Optional. default is config.ROOT_TAX_ID
+        
+    Returns:
+        A list of tax IDS
+        
+    '''
+    if root_tax_id is None:
+        root_tax_id = config.ROOT_TAX_ID
+    
+    ncbi = NCBITaxa()
+    tree = ncbi.get_topology([root_tax_id])
+
+    tree.depth = 0
+
+    ids = []
+    
+    tovisit = deque([tree])
+    while len(tovisit)>0:
+        node = tovisit.popleft()
+        if max_depth is None or node.depth < max_depth:
+            ids.append(int(node.name))
+            
+        if len(node.children) > 0:
+            for child in node.children:
+                child.depth = node.depth + 1
+            tovisit.extend(node.children)
+    
+    return ids
+
+def get_tax_ranks_in_order(root_node=10239):
+    '''Not finished.
+    
+    This method should be used sparingly. Once the result has been computed
+    once, it should be cached. The taxonomy rank nomeclature used by NCBI is not 
+    explicit (or, at least, I can't find any documentation). This function
+    uses the Viruses superkingdom node of the tree to find ranks, in order from
+    superkingdom to species.
+    
+    Returns:
+        A list of rank names where the index value indicates is level in the tree
+    '''
+    ranks = []
+    
+    ncbi = NCBITaxa()
+    
+    tax_ids = get_descendant_tax_ids_from_root_tax_id(tax_id=root_node)
+
+    tree = ncbi.get_topology(tax_ids)
+
+    tax2name, tax2track, tax2rank = ncbi.annotate_tree(tree)
+
+    tax2depth = {}
+    
+    tree.depth = 0
+
+    tovisit = deque([tree])
+    while len(tovisit)>0:
+        node = tovisit.popleft()
+        if len(node.children) > 0:
+            for child in node.children:
+                child.depth = node.depth + 1
+                tax2depth[int(child.name)] = node.depth + 1
+            tovisit.extend(node.children)
+
+    
+    print(tax2rank)
+    return tax2depth, tax2rank
+
+    
+    
+
+def filter_tax_ids_by_level():
+    return None
+  
+def generate_newick_string_from_tax_ids(tax_ids):
+    '''This function generates Newick string of the data needed to visualise the
+    phylogenetic tree in a web browser. See https://en.wikipedia.org/wiki/Newick_format
+    
+    Arguments:
+        tax_ids (list):  The taxonomy IDs to include in the tree
+        
+    Returns:
+        A Newick string
+    '''
+    
+    ncbi = NCBITaxa()
+
+    return write_newick(
+        ncbi.get_topology(
+            tax_ids
+        )
+    )
+    
+def generate_newick_string_from_accessions(accessions, rank_limit=None):
+    '''This function generates Newick string of the data needed to visualise the
+    phylogenetic tree in a web browser. See https://en.wikipedia.org/wiki/Newick_format
+    
+    Arguments:
+        accessions (list):  The accessions for which tax IDs are identified from
+        
+    Returns:
+        A Newick string
+    '''
+    
+    ncbi = NCBITaxa()
+
+    return write_newick(
+        ncbi.get_topology(
+            get_tax_ids_from_accessions(
+                accessions
+            ),
+            rank_limit=rank_limit
+        )
+    )    
+
+def generate_df_phylo_node_scores_from_tax_ids(tax_ids):
+    '''Given a list of accessions and scores, calculate node scores.
+    
+    Arguments:
+        tax_ids (list): A list of taxonomy IDs
+        
+    Returns:
+        A DataFrame with columns: tax_id, score
+    
+    '''
+    with open('/home/jake/ViralCut/43740568-scores.csv', 'r') as fp:
+        df = pd.read_csv(fp)
+    
+    df['local'] = 10000.0 / df['mit'] - 100.0
+
+    ncbi = NCBITaxa()
+    tree = ncbi.get_topology(tax_ids)#, intermediate_nodes=True)
+
+    data = {'tax_id': [], 'score' : []}
+
+    for idx, i in enumerate(tree.traverse(strategy="levelorder")):
+        species = map(float, i.get_leaf_names())
+        df_species = df[df['taxId'].isin(species)]
+        mit = 10000.0 / (100.0 + df_species['local'].sum())
+        
+        data['tax_id'].append(i.name)
+        data['score'].append(mit)
+    
+    return pd.DataFrame(data)
+
+def generate_df_phylo_node_scores_from_accessions(accessions):
+    '''Given a list of accessions and scores, calculate node scores.
+    
+    Arguments:
+        accessions (list): A list of accessions
+        
+    Returns:
+        A DataFrame with columns: tax_id, score
+    
+    '''
+    tax_ids = get_tax_ids_from_accessions(accessions)
+    return generate_df_phylo_node_scores_from_tax_ids(tax_ids)
+
+def prepare_files_for_visualisation(accessions, file_prefix):
+    '''The web-based visualisation needs three files, this function generates
+    each using other methods within this module. 
+    
+    Arguments:
+        accessions (list):      A list of accessions to include. Note, 
+            these are used only to lookup which taxonomy IDs should be included 
+            in the tree.
+        file_prefix (string):   A file path prefix to write to. If a directory
+            is specified then the files will be named `species.csv`, 
+            `newick.txt` and `scores.csv`. If not a directory then the names 
+            follow this convention: f'{file_prefix}.species.csv'.
+    '''
+    
+    # Make sure the prefix ends with a `.` but only if it is not a directory
+    if not os.path.isdir(file_prefix):
+        if file_prefix.endswith('.'):
+            file_prefix = file_prefix[:-1]
+    
+        fp_species_data = f'{file_prefix}.species.csv'
+        fp_newick_string = f'{file_prefix}.newick.txt'
+        fp_node_scores = f'{file_prefix}.scores.csv'
+    else:
+        fp_species_data = os.path.join(file_prefix, 'species.csv')
+        fp_newick_string = os.path.join(file_prefix, 'newick.txt')
+        fp_node_scores = os.path.join(file_prefix, 'scores.csv')
+        
+    with open(fp_species_data, 'w') as fp:
+        df = generate_df_of_species_data_from_accessions(accessions)
+        df.to_csv(fp, index=False)
+        
+    with open(fp_newick_string, 'w') as fp:
+        newick = generate_newick_string_from_accessions(accessions)
+        fp.write(f'{newick}\n')
+        
+    with open(fp_node_scores, 'w') as fp:
+        df = generate_df_phylo_node_scores_from_accessions(accessions)
+        df.to_csv(fp, index=False)
+
+    if config.VERBOSE:
+        print((
+            f'Wrote to:\n'
+            f'\t{fp_species_data}\n'
+            f'\t{fp_newick_string}\n'
+            f'\t{fp_node_scores}'
+        ))
+
 def get_children(tree):
     return tree.children
 
@@ -93,7 +394,7 @@ def generate_phylogenetic_tree_from_tax_ids(tax_ids):
 
             if idx == 8:
                 break
-    print(write_newick(ncbi.get_topology(ncbi.get_descendant_taxa(10240)), features=['name', 'detailed_name', 'mit']))
+    print(write_newick(ncbi.get_topology(ncbi.get_descendant_taxa(10240))))
     #print(tree.get_ascii(attributes=['name', 'detailed_name', 'mit']))
 
     
