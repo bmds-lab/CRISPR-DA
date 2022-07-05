@@ -25,6 +25,7 @@ from tempfile import NamedTemporaryFile
 
 
 from . import config
+from . import analysis
 from .design import process_gene_by_id, run_mini_crackling
 from .data import *
 
@@ -104,8 +105,11 @@ def run_offtarget_scoring(guides, accessions, processors=0):
 
                 scores['accession'].append(accs)
                 scores['sequence'].append(seq)
-                scores['mit'].append(mit)
-                scores['cfd'].append(cfd)
+                
+                # reverse the global off-target score to what is now the 'assembly score'
+                scores['mit'].append(10_000.0 / float(mit) - 100.0) 
+                scores['cfd'].append(10_000.0 / float(cfd) - 100.0)
+                
                 scores['unique_sites'].append(uniqueSites)
                 scores['total_sites'].append(totalSites)
 
@@ -150,6 +154,14 @@ def run_analysis(gene_id, accessions=None):
         print('Extracting target sites')
     collection = process_gene_by_id(gene_id)
 
+    collection.gene_id = gene_id
+    collection.accessions = accessions
+    
+    collection.accession_to_tax_id = {
+        accs : tax_id
+        for accs, tax_id in zip(accessions, analysis.get_tax_ids_from_accessions(accessions, uniq=False))
+    }
+    
     # Evaluate on-target efficiency via Crackling    
     if config.VERBOSE:
         print('Evaluating efficiency')

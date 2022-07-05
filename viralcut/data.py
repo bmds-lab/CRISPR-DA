@@ -4,20 +4,21 @@ import os
 import subprocess
 import multiprocessing
 import zipfile as zf
+from glob import glob
+from collections import deque
+from io import BytesIO, TextIOWrapper
 
 try:
    import cPickle as pickle
 except:
    import pickle
    
-from io import BytesIO, TextIOWrapper
-
-import ncbi.datasets
-from glob import glob
-
 from . import config
 
+import ncbi.datasets
+from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 import pandas as pd
+import tqdm
 
 class Guide:
     def __init__(self, seq):
@@ -63,7 +64,11 @@ class Guide:
 class ViralCutCollection:
     def __init__(self):
         self.guides = {}
+        self.gene_id = None
+        self.accessions = []
+        self.accession_to_tax_id = {}
         self.gene_properties = {}
+        self.node_scores = {}
 
     def __getitem__(self, key):
         k = self._get_guide_key(key)
@@ -134,9 +139,15 @@ class ViralCutCollection:
         return pd.DataFrame(data)
 
     def assembly_scores_to_dataframe(self):
-        '''This function takes the assembly scores of each guide (dict of lists)
-        and merges them into one data structure (dict of lists). Adding the extract
-        column for the guide identity is needed.
+        '''This function takes the assembly scores of each guide (dict of lists) and merges them 
+        into one data structure (dict of lists). Adding the extract column for the guide identity is
+        needed. The DataFrame will look something like:
+        
+        > guide        accession score_name       score unique_sites total_sites
+        > 0  TACACTAATTCTTTCACACGTGG  GCA_000859285.1        mit  100.000000     0.000000    0.000000
+        > 1  TACACTAATTCTTTCACACGTGG  GCA_000886535.1        mit  100.000000     0.000000    0.000000
+        > 2  TACACTAATTCTTTCACACGTGG  GCA_000884175.1        cfd  100.000000     0.000000    0.000000
+
         
         Returns:
             A DataFrame
@@ -155,6 +166,79 @@ class ViralCutCollection:
             scores['guide'] += [guide] * len(self.guides[guide].assembly_scores[k])
             
         return pd.DataFrame(scores)
+
+    def calculate_node_scores(self,
+        root_tax_id=None
+    ):
+        '''Starting at some root node of a ETE3 NCBI tax tree, calculate the nodescore of every 
+        internal node.
+        
+        Arguments:
+        
+        '''
+        if root_tax_id is None:
+            root_tax_id = config.ROOT_TAX_ID
+
+        ncbi = NCBITaxa()
+        tree = ncbi.get_topology([root_tax_id])
+
+        df_scores = self.assembly_scores_to_dataframe()
+
+        '''
+        The following DataFrame is structured as following:
+           |    | accession       |   tax_id |
+           |---:|:----------------|---------:|
+           |  0 | GCA_000859285.1 |    85708 |
+           |  1 | GCA_000886535.1 |    11676 |
+           |  2 | GCA_000884175.1 |  1645793 |
+        '''
+        df_accs_to_tax_id = pd.DataFrame(self.accession_to_tax_id.items(), columns=['accession', 'tax_id'])
+        
+        '''
+        The following DataFrame is structured as following:
+           |    | guide                   | accession       | score_name   | score | unique_sites | total_sites |  tax_id |
+           |---:|:------------------------|:----------------|:-------------|------:|-------------:|------------:|--------:|
+           |  0 | TACACTAATTCTTTCACACGTGG | GCA_000859285.1 | mit          |   100 |            0 |           0 |   85708 |
+           |  1 | TACACTAATTCTTTCACACGTGG | GCA_000886535.1 | mit          |   100 |            0 |           0 |   11676 |
+           |  2 | TACACTAATTCTTTCACACGTGG | GCA_000884175.1 | cfd          |   100 |            0 |           0 | 1645793 |
+        '''
+        df_scores = df_scores.merge(df_accs_to_tax_id, on='accession', how='left')
+
+        data = {'tax_id': [], 'score_name' : [], 'guide' : [], 'score' : []}
+
+        tree_nodes = list(tree.traverse(strategy="levelorder"))
+        number_leaves = len(tree_nodes)
+        
+        score_names = ['mit'] #set(df_scores['score_name']):
+        guides = set(df_scores['guide'])
+        
+        for idx, i in enumerate(tree.traverse(strategy="levelorder")):
+            tax_id = int(i.name)
+        
+            for score_name in score_names:
+                
+                for guide in guides:
+                
+                    species = map(int, i.get_leaf_names())
+            
+                    df_node = df_scores[df_scores['tax_id'].isin(species)]
+                    df_node = df_node[df_scores['score_name'] == score_name]
+                    df_node = df_node[df_scores['guide'] == guide]
+            
+                    if len(df_node) > 0:
+                        score = 10000.0 / (100.0 + df_node['score'].sum())
+                    else:
+                        score = -1
+                    
+                    
+                    data['score_name'].append(score_name)
+                    data['tax_id'].append(tax_id)
+                    data['guide'].append(guide)
+                    data['score'].append(score)
+            
+            print(f'{idx: >6} / {number_leaves}: {tax_id: >6}')
+            
+        return pd.DataFrame(data)
 
     def to_pickle(self, filename):
         with open(filename, 'wb') as fp:
@@ -181,7 +265,7 @@ class ViralCutCollection:
                 
         with open(f"{filename}-assembly-scores.csv", "w") as fp:
             df_assembly_scores.to_csv(fp, index=False)
-    
+ 
 def collection_from_pickle(filename):
     collection = ViralCutCollection()
     with open(filename, 'rb') as fp:

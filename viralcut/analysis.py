@@ -225,12 +225,6 @@ def get_tax_ranks_in_order(root_node=10239):
     
     print(tax2rank)
     return tax2depth, tax2rank
-
-    
-    
-
-def filter_tax_ids_by_level():
-    return None
   
 def generate_newick_string_from_tax_ids(tax_ids):
     '''This function generates Newick string of the data needed to visualise the
@@ -329,7 +323,7 @@ def generate_df_phylo_node_scores_from_accessions(accessions):
     return generate_df_phylo_node_scores_from_tax_ids(tax_ids)
 
 def prepare_files_for_visualisation(accessions, file_prefix):
-    '''The web-based visualisation needs three files, this function generates
+    '''(DEPRECATED) The web-based visualisation needs three files, this function generates
     each using other methods within this module. 
     
     Arguments:
@@ -375,35 +369,3 @@ def prepare_files_for_visualisation(accessions, file_prefix):
             f'\t{fp_node_scores}'
         ))
 
-def get_children(tree):
-    return tree.children
-
-def generate_phylogenetic_tree_from_tax_ids(tax_ids):
-    with open('43740568-scores.csv', 'r') as fp:
-        df = pd.read_csv(fp)
-    
-    df['local'] = 10000.0 / df['mit'] - 100.0
-    #print(df)
-    
-    ncbi = NCBITaxa()
-    tree = ncbi.get_topology(tax_ids)#, intermediate_nodes=True)
-    tax2name, tax2track, tax2rank = ncbi.annotate_tree(tree)
-    
-    for idx, i in enumerate(tree.traverse(strategy="levelorder")):
-        species = map(float, i.get_leaf_names())
-        df_species = df[df['taxId'].isin(species)]
-        mit = 10000.0 / (100.0 + df_species['local'].sum())
-        i.mit = f"mit: {round(mit, 3)}"
-        i.detailed_name = f"{tax2name[int(i.name)]} ({tax2rank[int(i.name)]})"
-        
-        if False:
-            print(f"{i.name} {tax2name[int(i.name)]} ({tax2rank[int(i.name)]}) ({len(i.children)} children) ({len(i.get_leaf_names())} leaves): ")
-            for x in i.children[0:5]:
-                print(f"    {x.name} ({tax2rank[int(x.name)]}): {tax2name[int(x.name)]}")
-
-            print(f"    mit score: {mit} (on {len(df_species)} observations)")
-            print('\n')
-
-            if idx == 8:
-                break
-    print(write_newick(ncbi.get_topology(ncbi.get_descendant_taxa(10240))))
