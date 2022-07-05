@@ -57,7 +57,7 @@ def species(root_tax_id):
     output.headers["Content-type"] = "text/csv"
     return output
 
-def run():
+def run(path_to_pickled_viralcut_collection):
     app.run(host='0.0.0.0', port='8080', debug=True)
 
 if __name__ == '__main__':

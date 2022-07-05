@@ -5,18 +5,12 @@ var fp_scores = "scores"; //"test.scores.csv"
 var fp_species = "species"; //"test.species.csv" // "Euk.tree.annotations2.csv"
 var fp_newick = "newick"; //"test.newick.txt"
 
-var width = 1200;
-var height = 900;
 var y_scale = 1;
 var x_scale = 1;
-var treeWidth = width;
-var treeHeight = height;
 var duration = 500;
 var font_size = 14;
 
 var lca; // last common ancenstor
-var foundSpecies = []; //for searching a taxonomical unit
-var nodeArray; //a global array of all the nodes
 
 var annotations = "";//await d3f.csv(fp_species);
 var euk = "";//await d3f.text("/newick");
@@ -56,10 +50,6 @@ function parseNewick(a) {
         }
     }
     return r
-}
-
-function zoom() {
-    vis.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
 }
 
 function findScore(node) {
@@ -111,9 +101,9 @@ function getTotalLength(node) {
 }
 
 function adjustLength(n, offset) {
-    console.log(n);
-    y_scale = document.getElementById("rangeHorizontalScale").value * 10;//, 2);// * 10;
-    x_scale = 0.1 / Math.log(51 - document.getElementById("rangeVerticalScale").value);//, 2);// / 100;
+    //console.log(n);
+    y_scale = 200 / Math.log(12 - document.getElementById("rangeHorizontalScale").value);
+    x_scale = 0.1 / Math.log(52 - document.getElementById("rangeVerticalScale").value);
     
     if (n.length != null) {
         offset += n.length * y_scale;
@@ -260,8 +250,8 @@ function redraw_tree(source) {
         .on("click", click);
 
     nodeEnter.append("circle")
-        .attr("r", 1e-6)
-        .attr("fill", "dodgerblue")
+        .attr("r", 8)
+        .attr("fill", "black")
         .on("mouseover", function(d) {
             d3.select("#commonName").text(d.commonName);
             d3.select("#score").text(d.score);
@@ -295,7 +285,7 @@ function redraw_tree(source) {
             if (d.id == lca) {
                 return 5;
             } else {
-                return 2.5;
+                return 3;
             }
         });
 
@@ -381,9 +371,7 @@ function redraw_tree(source) {
     
 };
 
-function zoomListener() {
-    d3.behavior.zoom().scaleExtent([0.1, 5]).on("zoom", zoom);
-}
+
 
 d3.select("#searchButton").on("click", function() {
     update_data();
@@ -406,21 +394,26 @@ d3.select("#zoomReset").on("click", function() {
 
 
 
+function zoom() {
+    vis.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+}
+
+var zoomListener = d3.behavior.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
+
 
 
 await update_data();
 
-var vis = d3.select("body")
+var vis = d3.select("#panelTree")
     .append("svg")
-    .attr("preserveAspectRatio", "xMinYMin meet")
-    .attr("viewBox", "0 0 960 500")
-    .attr("id", "panelTree")
+    .attr("width", '100%')
+    .attr("height", '100%')
     .call(zoomListener)
     .append("g")
     .attr("transform", "translate(50, 50)");
-
+window.vis = vis;
 var tree = d3.layout.cluster()
-    .size([treeWidth, treeHeight]);
+    .size([1920, 1080]);
 
 var root = parseNewick(euk);
 
@@ -430,6 +423,8 @@ root.parent = {
 };
 
 root.totalLength = 0;
+
+
 
 traverseAndAnnotate(root);
 getTotalLength(root);
