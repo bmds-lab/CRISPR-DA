@@ -296,12 +296,24 @@ def generate_df_phylo_node_scores_from_tax_ids(tax_ids):
     for idx, i in enumerate(tree.traverse(strategy="levelorder")):
         species = map(float, i.get_leaf_names())
         df_species = df[df['taxId'].isin(species)]
-        mit = 10000.0 / (100.0 + df_species['local'].sum())
+        if len(df_species) > 0:
+            mit = 10000.0 / (100.0 + df_species['local'].sum())
+        else:
+            mit = -1
         
         data['tax_id'].append(i.name)
         data['score'].append(mit)
     
     return pd.DataFrame(data)
+
+def generate_df_all_phylo_node_scores():
+    '''Calculate the score for every node, using the virus superkingdom as the
+    root node.
+    
+    Returns:
+        A DataFrame with columns: tax_id, score
+    '''
+    return generate_df_phylo_node_scores_from_tax_ids(config.ROOT_TAX_ID)
 
 def generate_df_phylo_node_scores_from_accessions(accessions):
     '''Given a list of accessions and scores, calculate node scores.
@@ -395,77 +407,3 @@ def generate_phylogenetic_tree_from_tax_ids(tax_ids):
             if idx == 8:
                 break
     print(write_newick(ncbi.get_topology(ncbi.get_descendant_taxa(10240))))
-    #print(tree.get_ascii(attributes=['name', 'detailed_name', 'mit']))
-
-    
-    
-    #nstyle = NodeStyle()
-    #nstyle['fgcolor'] = 'red'
-    #nstyle['hz_line_color'] = 'grey'
-    #nstyle['hz_line_type'] = 0
-    #nstyle['hz_line_width'] = 0
-    #
-    #nstyle2 = NodeStyle()
-    #nstyle2['size'] = 8
-    #nstyle2['shape'] = 'square'
-    #nstyle2['fgcolor'] = 'green'
-    #nstyle2['hz_line_color'] = 'orange'
-    #nstyle2['hz_line_type'] = 1
-    #nstyle2['vt_line_color'] = 'blue'
-    #nstyle2['vt_line_width'] = 2
-    #nstyle2['vt_line_type'] = 2
-    #
-    #for n in tree.iter_descendants():
-    #    if n.is_leaf():
-    #        n.set_style(nstyle)
-    #    else:
-    #        n.set_style(nstyle2)
-    #tree.set_style(nstyle2)
-    ######################################
-    ### plot with matplotlib
-    #fig, ax = plt.subplots(figsize=(25,50))
-    #axe, coords = plot_tree(tree, axe=ax, attributes=['name', 'detailed_name', 'mit'])
-    #fig.savefig('axe.png')   # save the figure to file
-
-    
-
-
-# def plot_scores_ridge()
-#     # Create the data
-#     rs = np.random.RandomState(1979)
-#     x = rs.randn(500)
-#     g = np.tile(list("ABCDEFGHIJ"), 50)
-#     df = pd.DataFrame(dict(x=x, g=g))
-#     m = df.g.map(ord)
-#     df["x"] += m
-# 
-#     # Initialize the FacetGrid object
-#     pal = sns.cubehelix_palette(10, rot=-.25, light=.7)
-#     g = sns.FacetGrid(df, row="g", hue="g", aspect=15, height=.5, palette=pal)
-# 
-#     # Draw the densities in a few steps
-#     g.map(sns.kdeplot, "x",
-#           bw_adjust=.5, clip_on=False,
-#           fill=True, alpha=1, linewidth=1.5)
-#     g.map(sns.kdeplot, "x", clip_on=False, color="w", lw=2, bw_adjust=.5)
-# 
-#     # passing color=None to refline() uses the hue mapping
-#     g.refline(y=0, linewidth=2, linestyle="-", color=None, clip_on=False)
-# 
-# 
-#     # Define and use a simple function to label the plot in axes coordinates
-#     def label(x, color, label):
-#         ax = plt.gca()
-#         ax.text(0, .2, label, fontweight="bold", color=color,
-#                 ha="left", va="center", transform=ax.transAxes)
-# 
-# 
-#     g.map(label, "x")
-# 
-#     # Set the subplots to overlap
-#     g.figure.subplots_adjust(hspace=-.25)
-# 
-#     # Remove axes details that don't play well with overlap
-#     g.set_titles("")
-#     g.set(yticks=[], ylabel="")
-#     g.despine(bottom=True, left=True)

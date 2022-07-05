@@ -1,9 +1,18 @@
+from importlib import resources
+
+# The 'NCBI Genome Information by Organism' table is a good way to obtain a filtered list of
+# NCBI accessions. This method parses the CSV file that is provided when clicking 'Download' on
+# this page https://www.ncbi.nlm.nih.gov/genome/browse/. Please ensure the 'Assembly' column is
+# present before exporting. 
+NCBI_HUMAN_VIRUSES_TABLE = resources.path('viralcut.resources', 'human_viruses.csv')
+
+
 # The root taxonomy ID used. By default, the viruses superkingdom (ID 10239)
 # is the root.
 ROOT_TAX_ID = 10239
 
 # The directory to write files downloaded from NCBI to
-CACHE = '/mnt/ssd1/genomes-viruses'
+CACHE = '~./genomes-viruses'
 
 # When downloading through NCBI Datasets PyLib, the requested URL may be
 # rejected due to exceeding a reasonable length, if too many accessions are 
@@ -23,11 +32,10 @@ VERBOSE = True
 CONSENSUS_N = 2
 
 # Path to the ISSL scoring binary
-BIN_ISSL_SCORE = '/home/jake/Crackling-v2.0/bin/isslScoreOfftargets'
-BIN_ISSL_SCORE = '/mnt/hdd1/CRISPR/genomes/S-aureus-assemblies/isslScoreOfftargets_8b36d93'
+BIN_ISSL_SCORE = 'isslScoreOfftargets'
 
 # Path to the ISSL indexing binary
-BIN_ISSL_IDX = '/home/jake/Crackling-v2.0/bin/isslCreateIndex'
+BIN_ISSL_IDX = 'isslCreateIndex'
 
 # Path to the CRISPR site extraction utility available in Crackling
 BIN_EXTRACT = 'extractOfftargets'

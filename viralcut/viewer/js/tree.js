@@ -14,18 +14,25 @@ var treeHeight = height;
 var duration = 500;
 var font_size = 14;
 
-var relatedNodes = []; // global variable for relatedness feature.
 var lca; // last common ancenstor
 var foundSpecies = []; //for searching a taxonomical unit
 var nodeArray; //a global array of all the nodes
 
-var annotations = await d3f.csv(fp_species);
-var euk = await d3f.text("/newick");
-var euk = await d3f.text(fp_newick);
-var scores = await d3f.csv(fp_scores);
+var annotations = "";//await d3f.csv(fp_species);
+var euk = "";//await d3f.text("/newick");
+var euk = "";//await d3f.text(fp_newick);
+var scores = "";//await d3f.csv(fp_scores);
 
-<!-- Copyright 2011 Jason Davies https://github.com/jasondavies/newick.js -->
+async function update_data() {
+    var root_tax_id = document.getElementById('txtRootTaxId').value;
+    //console.log(root_tax_id);
+    annotations = await d3f.csv(fp_species + "/" + root_tax_id);
+    euk = await d3f.text(fp_newick + "/" + root_tax_id);
+    scores = await d3f.csv(fp_scores + "/" + root_tax_id);
+}
+
 function parseNewick(a) {
+    // Copyright 2011 Jason Davies https://github.com/jasondavies/newick.js
     a = a.toString();
     for (var e = [], r = {}, s = a.split(/\s*(;|\(|\)|,|:)\s*/), t = 0; t < s.length; t++) {
         var n = s[t];
@@ -76,9 +83,6 @@ function findSpecies(node) {
     });
 };
 
-
-
-/* Annotate using breadth-first traversal */
 function traverseAndAnnotate(root_node) {
     root_node.children = root_node.branchset;
     var queue = [];
@@ -96,10 +100,6 @@ function traverseAndAnnotate(root_node) {
     }
 };
 
-/*
-Gets the total length of each node from the root (totalLength is this total 
-length, and length is the distance from the parent node).
-*/
 function getTotalLength(node) {
     //console.log(node);
     if (typeof node.branchset != "undefined") {
@@ -110,12 +110,10 @@ function getTotalLength(node) {
     }
 }
 
-
-/*This changes the y values to be based off of the actual relatedness distance.
-Also an offset seemed potentially helpful, so it's there.*/
 function adjustLength(n, offset) {
-    y_scale = document.getElementById("rangeHorizontalScale").value * 10;
-    x_scale = document.getElementById("rangeVerticalScale").value / 10;
+    console.log(n);
+    y_scale = document.getElementById("rangeHorizontalScale").value * 10;//, 2);// * 10;
+    x_scale = 0.1 / Math.log(51 - document.getElementById("rangeVerticalScale").value);//, 2);// / 100;
     
     if (n.length != null) {
         offset += n.length * y_scale;
@@ -136,7 +134,6 @@ function rightAngleDiagonal(d, i) {
         "V" + d.target.x + "H" + d.target.y;
 }
 
-
 function bolded(is_mousedover) {
     return function(d) {
         d3.select(this).classed("link_bold", is_mousedover);
@@ -144,11 +141,6 @@ function bolded(is_mousedover) {
     }
 }
 
-/*
-Describes how to handle clicks. If an internal node (a node with children) is clicked on, 
-it will collapse the branches following this node. If a leaf node is clicked, the node 
-will be highlighted or unhighlighted.
-*/
 function click(d) {
     // collapse subtree
     if (d.children) {
@@ -156,39 +148,16 @@ function click(d) {
     } else {
         d.children = d.branchset;
     }
-
-    // highlight edges in common
-    if (!d.branchset) {
-        // clicked on a leaf
-        var nodeIndex = relatedNodes.indexOf(d);
-        if (nodeIndex == -1) {
-            relatedNodes.push(d);
-        } else {
-            relatedNodes.splice(nodeIndex, 1);
-            traverseAncestors(d, false); // remove highlight
-        }
-    }
-    
-    if (relatedNodes.length > 1) {
-        //colorRelated();
-        relatedNodes.forEach(function(leaf) {
-            traverseAncestors(leaf, true);
-        });
-    } else {
-        relatedNodes.forEach(function(leaf) {
-            traverseAncestors(leaf, false);
-        });
-    }
-    update(d);
+    redraw_tree(d);
 }
 
-
 function name(node) {
-    if (node.children) {
-        return "";
-    } else {
-        return node.species;
-    }
+    return node.commonName;
+    //if (node.children) {
+    //    return "";
+    //} else {
+    //    return node.commonName;
+    //}
 }
 
 function makeAncestors(leaf) {
@@ -201,8 +170,8 @@ function makeAncestors(leaf) {
     leaf.ancestors = ancestors;
 }
 
-// looks through ancestors and sets them as in the path, until get to the LCA
 function traverseAncestors(leaf, set_inpath) {
+    // looks through ancestors and sets them as in the path, until get to the LCA
     // we have to clear the path out regardless
     var temp = leaf;
     while (leaf.id != 0) {
@@ -220,103 +189,25 @@ function traverseAncestors(leaf, set_inpath) {
     }
 }
 
-/*Sets the lca value with the id of the least common ancestor node.*/
-function colorRelated() {
-    relatedNodes.forEach(function(d) {
-        makeAncestors(d);
-    });
-
-    var prior = 0;
-    var one_node_ancestors = relatedNodes[0].ancestors;
-    var j = 0;
-    while (j < 25) { // arbitrary number, deeper than all leaves
-        relatedNodes.slice(1, relatedNodes.length).forEach(function(d) {
-            if (d.ancestors[j] != one_node_ancestors[j]) {
-                j = 26; // to break out of the while
-            }
+function collapseNthSubtree(root_node, n) {
+    //console.log(root_node.commonName, n);
+    if (root_node.children) {
+        root_node.children.forEach(function (d) {
+            collapseNthSubtree(d, n - 1);
         });
-        if (j < 25) {
-            prior = one_node_ancestors[j];
-        }
-        j++;
     }
-    lca = prior;
+    if (n <= 0) {
+        if (root_node.children) {
+            root_node.children = null;
+        } else {
+            root_node.children = root_node.branchset;
+        }
+    }    
+    redraw_tree(root_node);
 }
 
-
-// define the zoomListener which calls the zoom function on the "zoom" event constrained within the scaleExtents
-// item 0: zoom out constraint, item 1: zoom in constraint
-var zoomListener = d3.behavior.zoom().scaleExtent([0.1, 5]).on("zoom", zoom);
-
-//the svg for the main tree
-var vis = d3.select("body")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .attr("id", "visDiv")
-    .call(zoomListener)
-    .append("g")
-    .attr("transform", "translate(50, 50)");
-
-var tree = d3.layout.cluster()
-    .size([treeWidth, treeHeight]);
-
-var root = parseNewick(euk);
-
-root.parent = {
-    x: 0,
-    y: 0
-};
-
-root.totalLength = 0;
-
-traverseAndAnnotate(root);
-getTotalLength(root);
-
-window.vis = vis;
-window.tree = tree;
-window.root = root;
-
-//for the search bar
-d3.select("#searchButton").on("click", function() {
-    var name = document.getElementById("nameInput").value;
-
-    foundSpecies = [];
-    var tax;
-
-    nodeArray.forEach(function(d) { //going through each of the nodes in tree
-        tax = d.taxonomy;
-        tax.forEach(function(f) { //going through each entry in taxonomy array
-            if (f.includes(name)) { //if has that name in it's taxonomy
-                foundSpecies.push(d.id); //push it onto the array
-            }
-        });
-    });
-
-    if (foundSpecies.length == 0) {
-        alert("No matches found");
-    }
-
-    update(root);
-});
-
-d3.select("#rangeHorizontalScale").on("change", function() {
-    update(root);
-});
-d3.select("#rangeVerticalScale").on("change", function() {
-    update(root);
-});
-
-
-d3.select("#zoomReset").on("click", function() {
-    zoomListener.translate([0, 0]).scale(1);
-    foundSpecies = [];
-    update(root);
-});
-
-
-// https://gist.github.com/mlocati/7210513
 function getLinkColour(score) {
+    // https://gist.github.com/mlocati/7210513
     var perc = score;
     var r, g, b = 0;
     if(perc > 50) {
@@ -329,31 +220,30 @@ function getLinkColour(score) {
     }
     var h = r * 0x10000 + g * 0x100 + b * 0x1;
     return '#' + ('000000' + h.toString(16)).slice(-6);
-    return color;
 }
 
-// https://stackoverflow.com/a/17268489/12891825
 function getLinkColour_old(value){
+    // https://stackoverflow.com/a/17268489/12891825
     //value from 0 to 1
     var hue=((1-value)*120).toString(10);
     return ["hsl(",hue,",100%,50%)"].join("");
 }
 
-
-function update(source) {    
+function redraw_tree(source) {
     var nodes = tree.nodes(root);
     var links = tree.links(nodes);
 
     adjustLength(nodes[0], 0);
 
     vis.selectAll(".link")
-        .data(links, function(d) {
+        .data(links, function(d) { 
             return d.target.id;
         })
         .enter()
         .append("path")
         .attr("class", "link")
         .attr("fill", "none")
+        .attr("stroke", "black")
         .attr("d", rightAngleDiagonal);
 
     var node = vis.selectAll("g.node")
@@ -369,8 +259,6 @@ function update(source) {
         })
         .on("click", click);
 
-
-    
     nodeEnter.append("circle")
         .attr("r", 1e-6)
         .attr("fill", "dodgerblue")
@@ -379,9 +267,7 @@ function update(source) {
             d3.select("#score").text(d.score);
             d3.select("#taxonomy").text(d.name);
             d3.select("#depth").text(d.depth);
-        })
-        .classed("node", true);
-
+        });
 
     nodeEnter.append("text")
         .attr("dx", 5)
@@ -414,11 +300,19 @@ function update(source) {
         });
 
     nodeUpdate.select("text")
+        .style("fill-opacity", 1)
+        .style("font-size", function (d) { 
+            if (d.children) { 
+                return "10px";
+            } else {
+                return "14px";
+            } 
+        })
         .text(function(d) {
             return name(d)
         });
-
-
+        
+    
     // when nodes are collapsed
     var nodeExit = node.exit().transition()
         .duration(duration)
@@ -426,15 +320,13 @@ function update(source) {
             return "translate(" + source.y + "," + source.x + ")";
         });
 
+    // make circle really small 
     nodeExit.select("circle")
-        .attr("r", 1e-15);
+      .attr("r", 1e-6);
 
+    // make text invisible
     nodeExit.select("text")
-        .style("fill-opacity", 1e-6);
-
-
-
-
+      .style("fill-opacity", 1e-6);
 
     // update the links
     var link = vis.selectAll("path.link")
@@ -443,7 +335,8 @@ function update(source) {
         });
 
     link.enter().insert("path", "g")
-        .attr("d", function(d) {
+      .attr("class", "link") // for some reason, this line is very important
+      .attr("d", function(d) {
             var o = {
                 x: d.source.x,
                 y: d.source.y
@@ -452,13 +345,6 @@ function update(source) {
                 source: o,
                 target: o
             });
-        })
-        .attr("stroke-width", function(d) {
-            if (d.target.in_path) {
-                return "4px";
-            } else {
-                return "2px";
-            }
         })
         .attr("fill", "none");
 
@@ -479,13 +365,74 @@ function update(source) {
                 source: o,
                 target: o
             });
-        })
+        });
+        
+    // Stash the old positions for transition.
+    nodes.forEach(function(d) {
+        d.x0 = d.x;
+        d.y0 = d.y;
+    });
 
     link.forEach(function (d) { 
         d.forEach(function (e) {
             e.style.stroke = getLinkColour(e.__data__.source.score); 
         });
     });
-
+    
 };
-update(root);
+
+function zoomListener() {
+    d3.behavior.zoom().scaleExtent([0.1, 5]).on("zoom", zoom);
+}
+
+d3.select("#searchButton").on("click", function() {
+    update_data();
+
+    redraw_tree(root);
+});
+
+d3.select("#rangeHorizontalScale").on("change", function() {
+    redraw_tree(root);
+});
+d3.select("#rangeVerticalScale").on("change", function() {
+    redraw_tree(root);
+});
+
+d3.select("#zoomReset").on("click", function() {
+    zoomListener.translate([0, 0]).scale(1);
+    redraw_tree(root);
+});
+
+
+
+
+
+
+await update_data();
+
+var vis = d3.select("body")
+    .append("svg")
+    .attr("preserveAspectRatio", "xMinYMin meet")
+    .attr("viewBox", "0 0 960 500")
+    .attr("id", "panelTree")
+    .call(zoomListener)
+    .append("g")
+    .attr("transform", "translate(50, 50)");
+
+var tree = d3.layout.cluster()
+    .size([treeWidth, treeHeight]);
+
+var root = parseNewick(euk);
+
+root.parent = {
+    x: 0,
+    y: 0
+};
+
+root.totalLength = 0;
+
+traverseAndAnnotate(root);
+getTotalLength(root);
+
+redraw_tree(root);
+collapseNthSubtree(root, 2);

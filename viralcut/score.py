@@ -25,7 +25,7 @@ from tempfile import NamedTemporaryFile
 
 
 from . import config
-from .design import process_sequence, run_mini_crackling
+from .design import process_gene_by_id, run_mini_crackling
 from .data import *
 
 OtsScores = namedtuple('OtsScore', ['mit', 'cfd'])
@@ -94,8 +94,8 @@ def run_offtarget_scoring(guides, accessions, processors=0):
         'sequence' :    [],
         'mit' :         [],
         'cfd' :         [],
-        'uniqueSites' : [],
-        'totalSites' :  [],
+        'unique_sites' : [],
+        'total_sites' :  [],
     }
     for accs in issl_output_files:
         with open(issl_output_files[accs], 'r') as fp:
@@ -106,23 +106,26 @@ def run_offtarget_scoring(guides, accessions, processors=0):
                 scores['sequence'].append(seq)
                 scores['mit'].append(mit)
                 scores['cfd'].append(cfd)
-                scores['uniqueSites'].append(uniqueSites)
-                scores['totalSites'].append(totalSites)
+                scores['unique_sites'].append(uniqueSites)
+                scores['total_sites'].append(totalSites)
 
     return scores
 
 
-def run_analysis(gene_id, accessions):
+def run_analysis(gene_id, accessions=None):
     '''Run pan-viral sgRNA design
 
     Arguments:
-        gene_id (string):       The gene ID to extract sites from.
-        accessions (list):      A list of accessions to evaluate, considered collectively per gene.
-        outFilePrefix (string): A prefix for the output files. Datetime is used if None.
+        gene_id (string):   The gene ID to extract sites from.
+        accessions (list):  (optional) A list of accessions to evaluate. If None then the 
+                            pre-compiled list of human viruses will be used.
 
     Returns:
-        A GuideCollection with results.
+        A ViralCutCollection with results.
     '''
+    
+    if accessions is None:
+        accessions = get_accessions_from_ncbi_table_export()
 
     # Download the requested accessions
     if config.VERBOSE:
@@ -142,32 +145,47 @@ def run_analysis(gene_id, accessions):
 
     download_ncbi_genes([gene_id])
 
-    gene_id, seq = list(get_cached_gene_seqs_by_id([gene_id]))[0]
-
     # Extract sites    
     if config.VERBOSE:
         print('Extracting target sites')
-    gc = process_sequence(seq)
+    collection = process_gene_by_id(gene_id)
 
     # Evaluate on-target efficiency via Crackling    
     if config.VERBOSE:
         print('Evaluating efficiency')
-    run_mini_crackling(gc)
+    run_mini_crackling(collection)
 
     # Filter out guides that should not be assessed for off-target risk
     if config.VERBOSE:
         print('Assessing off-target risk')
         
     targets_to_score = []
-    for guide in gc:
-        if gc[guide]['consensusCount'] >= config.CONSENSUS_N:
+    for guide in collection:
+        if collection[guide]['consensus_count'] >= config.CONSENSUS_N:
             targets_to_score.append(guide)
 
     # Do off-target scoring
     scores = run_offtarget_scoring(targets_to_score, accessions)
 
+    # Add scores to the collection
+    for accession, seq, mit, cfd, uniq, total in zip(
+        scores['accession'],
+        scores['sequence'],
+        scores['mit'],
+        scores['cfd'],
+        scores['unique_sites'],
+        scores['total_sites'],
+    ):
+        collection[seq].add_assembly_score(
+            accession,
+            score_name,
+            score,
+            unique_sites,
+            total_sites
+        )
+
     if config.VERBOSE:
         print('Done.')
     
-    return gc, scores
+    return collection
 

@@ -8,34 +8,39 @@
     </head>
 
     <body>
-        <div id="tooltip" class="hidden">
-            <p>
-                Enter a Species Name to Search: 
-                <input type="text" placeholder="Enter name" id="nameInput" onkeydown = "if (event.keyCode == 13){    document.getElementById('searchButton').click()}">
-            </p>
-            <p>
-                Horizontal scale: 
-                <input type="range" min="1" max="10" value="1" id="rangeHorizontalScale">
-            </p>
-            <p>
-                Vertical scale: 
-                <input type="range" min="1" max="50" value="1" id="rangeVerticalScale">
-            </p>
-            
-            
-            <button id="searchButton">Search</button>
-            <button id="zoomReset">Clear Search</button>
+        <div class="panels">
+            <div class="panel panelTreeControls">
+                <p>
+                    Horizontal scale: 
+                    <input type="range" min="1" max="10" value="1" id="rangeHorizontalScale">
+                </p>
+                <p>
+                    Vertical scale: 
+                    <input type="range" min="1" max="50" value="1" id="rangeVerticalScale">
+                </p>
+                <button id="searchButton">Search</button>
+                <button id="zoomReset">Clear Search</button>
+            </div>
+            <div class="panel panelTree" id="panelTree">
 
-            <br><br>
-            Common name: <span id="commonName"></span><br>
-            Score: <span id="score"></span><br>
-            Taxonomy: <span id="taxonomy"></span><br>
-            Depth: <span id="depth"></span>
-            
-            <br><br>
-            <select name="rankLimit" id="selRankLimit">
+            </div>
+            <div class="panel panelDataControls">
+                <p>
+                    Root taxonomy ID: 
+                    <input type="text" value="11118" placeholder="Enter taxonomy ID" id="txtRootTaxId" onkeydown="if (event.keyCode == 13){ document.getElementById('searchButton').click()}">
+                </p>
                 
-            </select>
+                <br><br>
+                Common name: <span id="commonName"></span><br>
+                Score: <span id="score"></span><br>
+                Taxonomy: <span id="taxonomy"></span><br>
+                Depth: <span id="depth"></span>
+                
+                <br><br>
+                <select name="rankLimit" id="selRankLimit">
+                    
+                </select>
+            </div>
         </div>
         <script src="./js/tree.js" type="module"></script>
     </body>

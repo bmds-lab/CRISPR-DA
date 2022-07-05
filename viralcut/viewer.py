@@ -1,5 +1,5 @@
 from . import analysis
-from .data import get_accessions_from_ncbi_table_export
+from . import data
 
 from flask import Flask, send_from_directory, make_response
 
@@ -9,16 +9,24 @@ app = Flask(__name__,
     template_folder='templates'
 )
 
-accessions = get_accessions_from_ncbi_table_export('/home/jake/ViralCut/examples/viruses.csv')[0:50]
+MAX_TAX_IDS = 30
 
-tax_ids = analysis.get_tax_ids_from_accessions(accessions) + analysis.get_descendant_tax_ids_from_root_tax_id(root_tax_id=687331)
+#accessions = data.get_accessions_from_ncbi_table_export('/home/jake/ViralCut/examples/viruses.csv')[0:50]
+#tax_ids = analysis.get_tax_ids_from_accessions(accessions) + 
+
+def get_tax_ids(root_tax_id):
+    #return data.get_cached_tax_ids()[:MAX_TAX_IDS]
+    tax_ids = analysis.get_descendant_tax_ids_from_root_tax_id(root_tax_id=root_tax_id, max_depth=3)
+    return tax_ids[:MAX_TAX_IDS]
+    
 
 @app.route("/")
 def root():
     return send_from_directory('viewer', 'index.html')
 
-@app.route("/newick")
-def newick():
+@app.route("/newick/<int:root_tax_id>")
+def newick(root_tax_id):
+    tax_ids = get_tax_ids(root_tax_id)
     output = make_response(
         analysis.generate_newick_string_from_tax_ids(tax_ids)
     )
@@ -26,19 +34,22 @@ def newick():
     return output
     
 
-@app.route("/scores")
-def scores():
+@app.route("/scores/<int:root_tax_id>")
+def scores(root_tax_id):
+    tax_ids = get_tax_ids(root_tax_id)
     df = analysis.generate_df_phylo_node_scores_from_tax_ids(tax_ids)
-    df['score'] = df['score'].round(decimals=2)
+    #df['score_orig'] = df['score'].round(decimals=2)
+    #df['score'] = (df['score_orig'] - df['score_orig'].min()) / (df['score_orig'].max() - df['score_orig'].min()) * 100.0
+
     output = make_response(
         df.to_csv(index=False)
     )
     output.headers["Content-type"] = "text/csv"
     return output
 
-@app.route("/species")
-def species():
-    print(tax_ids)
+@app.route("/species/<int:root_tax_id>")
+def species(root_tax_id):
+    tax_ids = get_tax_ids(root_tax_id)
     df = analysis.generate_df_of_species_data_from_tax_ids(tax_ids)
     output = make_response(
         df.to_csv(index=False)
@@ -51,42 +62,3 @@ def run():
 
 if __name__ == '__main__':
     run()
-    
-    
-    
-    
-    
-    
-    
-
-def generate_df_phylo_node_scores_from_accessions(accessions):
-    '''Given a list of accessions and scores, calculate node scores.
-    
-    Arguments:
-        accessions (list): A list of accessions
-        
-    Returns:
-        A DataFrame with columns: tax_id, score
-    
-    '''
-    with open('/home/jake/ViralCut/43740568-scores.csv', 'r') as fp:
-        df = pd.read_csv(fp)
-    
-    df['local'] = 10000.0 / df['mit'] - 100.0
-    
-    tax_ids = get_tax_ids_from_accessions(accessions)
-    print(tax_ids)
-    ncbi = NCBITaxa()
-    tree = ncbi.get_topology(tax_ids)#, intermediate_nodes=True)
-
-    data = {'tax_id': [], 'score' : []}
-
-    for idx, i in enumerate(tree.traverse(strategy="levelorder")):
-        species = map(float, i.get_leaf_names())
-        df_species = df[df['taxId'].isin(species)]
-        mit = 10000.0 / (100.0 + df_species['local'].sum())
-        
-        data['tax_id'].append(i.name)
-        data['score'].append(mit)
-    
-    return pd.DataFrame(data)

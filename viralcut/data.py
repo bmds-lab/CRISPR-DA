@@ -12,6 +12,94 @@ from glob import glob
 
 from . import config
 
+import pandas as pd
+
+class Guide:
+    def __init__(self, seq):
+        self.seq = seq
+
+        # properties of a guide
+        self.props = {}
+        
+        # scores
+        self.assembly_scores = {
+            'accession' : [],
+            'score_name' : [],
+            'score' : [],
+            'unique_sites' : [],
+            'total_sites' : []
+        }
+
+    def __getitem__(self, key):
+        if key not in self.props:
+            self.props[key] = CODE_UNKNOWN
+        return self.props[key]
+
+    def __setitem__(self, key, value):
+        self.props[key] = value
+
+    def __str__(self):
+        strProps = ' '.join([
+            f"{x}='{self.props[x]}'"
+            for x in self.props
+        ])
+        return f"<Guide seq='{self.seq}' {strProps}>"
+        
+    def add_assembly_score(self, accession, score_name, score, unique_sites, total_sites):
+        self.assembly_scores['accession'].append(accession)
+        self.assembly_scores['score_name'].append(score_name)
+        self.assembly_scores['score'].append(score)
+        self.assembly_scores['unique_sites'].append(unique_sites)
+        self.assembly_scores['total_sites'].append(total_sites)
+        
+    def assembly_scores_to_dataframe(self):
+        return pd.DataFrame(self.assembly_scores.items())
+
+class ViralCutCollection:
+    def __init__(self):
+        self.guides = {}
+
+    def __getitem__(self, key):
+        if key not in self.guides:
+            return None
+        return self.guides[key]
+
+    def __setitem__(self, key, value):
+        self.guides[key] = value
+
+    def __iter__(self):
+        for g in self.guides:
+            yield g
+
+    def __str__(self):
+        out = ""
+        for g in self.guides:
+            out += f"{self.guides[g]}\n"
+        return out
+        
+    def to_dataframe(self):
+        all_props = set()
+        
+        for g in self.guides:
+            for prop in self.guides[g].props:
+                all_props.add(prop)
+        
+        data = {'seq' : []}
+        
+        for g in self.guides:
+            data['seq'].append(g)
+
+            for prop in all_props:
+                if prop not in data:
+                    data[prop] = []
+                    
+                if prop in self.guides[g].props:
+                    data[prop].append(self.guides[g].props[prop])
+                else:
+                    data[prop].append(CODE_UNKNOWN)
+        
+        return pd.DataFrame(data)
+
 
 def parse_fna(stream):
     '''Parse some iterable object as a multi-FASTA file.
@@ -45,9 +133,9 @@ def download_ncbi_genes(gene_ids):
         A list of downloaded genes by ID
     '''
 
-    # Convert gene_ids to list if a string is provided
-    if isinstance(gene_ids, str):
-        gene_ids = [gene_ids]
+    # Convert gene_ids to list if non-list type is provided
+    if not isinstance(gene_ids, list):
+        gene_ids = [int(gene_ids)]
 
     # Some genes may already be cached,
     genes_to_download = [
@@ -89,21 +177,40 @@ def download_ncbi_genes(gene_ids):
         if 'ncbi_dataset/data/gene.fna' not in files:
             raise RuntimeError('Critical file not provided by NCBI: `ncbi_dataset/data/gene.fna`')
 
+        # Extract the data report
+        if 'ncbi_dataset/data/data_report.jsonl' not in files:
+            raise RuntimeError('Critical file not provided by NCBI: `ncbi_dataset/data/data_report.jsonl`')
+
+        data_report_by_gene_id = {}
+        
+        with zfp.open('ncbi_dataset/data/data_report.jsonl') as fp:
+            for line in fp:
+                report = json.loads(line.strip())
+                id = report['geneId']
+                data_report_by_gene_id[id] = report
+
         # ZipFile.open() reads as a binary stream but we need a text stream.
         # https://docs.python.org/3/library/io.html#io.TextIOWrapper
         with TextIOWrapper(zfp.open('ncbi_dataset/data/gene.fna')) as fp:
             for header, seq in parse_fna(fp):
-                headergene_id = get_properties_from_ncbi_fasta_header(header, key='GeneID')
+                header_gene_id = get_properties_from_ncbi_fasta_header(header, key='GeneID')
 
-                filename = f"{headergene_id}.fna"
-                cache_dir = get_gene_cache(headergene_id)
+                filename = f"{header_gene_id}.fna"
+                cache_dir = get_gene_cache(header_gene_id)
                 cached_file = os.path.join(cache_dir, filename)
+                cache_data_report = os.path.join(cache_dir, 'data_report.json')
 
                 with open(cached_file, 'w') as fp:
                     fp.write(f'{header}\n')
                     fp.write(f'{seq}\n')
 
-                gene_ids_downloaded.append(headergene_id)
+                with open(cache_data_report, 'w') as fpW:
+                    json.dump(data_report_by_gene_id[header_gene_id], fpW)
+                
+                if config.VERBOSE:
+                    print(f'Downloaded to: {cache_dir}')
+
+                gene_ids_downloaded.append(header_gene_id)
 
     return gene_ids_downloaded
 
@@ -166,13 +273,13 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
             if 'ncbi_dataset/data/assembly_data_report.jsonl' not in files:
                 raise RuntimeError('Critical file not provided by NCBI: `ncbi_dataset/data/assembly_data_report.jsonl`')
 
-            dataReportByAccession = {}
+            data_report_by_accession = {}
             
             with zfp.open('ncbi_dataset/data/assembly_data_report.jsonl') as fp:
                 for line in fp:
                     report = json.loads(line.strip())
                     accs = report['assemblyInfo']['assemblyAccession']
-                    dataReportByAccession[accs] = report
+                    data_report_by_accession[accs] = report
 
             for path in files:
 
@@ -197,7 +304,7 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
                     
                     if not os.path.exists(cache_data_report):
                         with open(cache_data_report, 'w') as fpW:
-                            json.dump(dataReportByAccession[accs], fpW)
+                            json.dump(data_report_by_accession[accs], fpW)
                         
                         if config.VERBOSE:
                             print(f'Downloaded to: {cache_data_report}')
@@ -260,7 +367,7 @@ def get_properties_from_ncbi_fasta_header(header, key=None):
     props = {}
     for i, prop in enumerate(header.split(' ')):
         if i == 0:
-            # `NC_045512.2:26245-26472`
+            # e.g., `NC_045512.2:26245-26472`
             acces, position = prop.split(':')
             start, end = position.split('-')
             props['accession'] = acces
@@ -272,7 +379,7 @@ def get_properties_from_ncbi_fasta_header(header, key=None):
             props['name'] = prop
 
         else:
-            # `[gene_id=43740570]`
+            # e.g., `[gene_id=43740570]`
             if prop[0] == '[' and prop[-1] == ']':
                 k, v = prop[1:-1].split('=')
                 props[k] = v
@@ -447,15 +554,20 @@ def create_issl_indexes(accessions,
     return indexesCreateFor
 
 
-def get_accessions_from_ncbi_table_export(filePath, **kwargs):
+def get_accessions_from_ncbi_table_export(
+    filePath=config.NCBI_HUMAN_VIRUSES_TABLE, 
+    **kwargs
+):
     '''The 'NCBI Genome Information by Organism' table is a good way to obtain a filtered list of
     NCBI accessions. This method parses the CSV file that is provided when clicking 'Download' on
     this page https://www.ncbi.nlm.nih.gov/genome/browse/. Please ensure the 'Assembly' column is
     present before exporting.
     
     Arguments:
-        filePath (string): The path to the CSV file provided when Download is clicked on the webpage
-        **kwargs: Keyword arguments forwarded to `csv.reader()`
+        filePath (string):  (optional) The path to the CSV file provided when Download is clicked on 
+                            the webpage. By default, the precompiled list provided with ViralCut 
+                            will be used.
+        **kwargs:           Keyword arguments forwarded to `csv.reader()`
         
     Returns:
         A list of NCBI accessions found in the file
@@ -480,7 +592,36 @@ def get_accessions_from_ncbi_table_export(filePath, **kwargs):
             accessions.append(row[idx_assembly])
     
     return accessions
+
+def get_cached_gene_information_by_id(gene_id):
+    '''Given some gene identifier, collect as properties about the gene. 
+    Raises an exception if the gene does not exist in the cache.
+    
+    Arguments:
+        gene_id (int):  The NCBI gene identifier
+        
+    Returns:
+        A dictionary of properties
+    '''
     
     
-def get_tax_ids_from_phylogenetic_tree_branch(node_tax_id):
-    return True
+
+def get_cached_tax_ids():
+    '''This function crawls the assemblies cache to extract taxonomy IDs
+    
+    Returns:
+        A list of taxonomy IDs
+    '''
+    
+    tax_ids = []
+    
+    for path, subdirs, files in os.walk(config.CACHE):
+        for name in files:
+            filename = os.path.basename(name)
+            if filename == 'data_report.json':
+                with open(os.path.join(path, filename), 'r') as fp:
+                    report = json.loads(fp.readline())
+                if 'taxId' in report:
+                    tax_ids.append(report['taxId'])
+
+    return tax_ids
