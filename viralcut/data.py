@@ -5,6 +5,11 @@ import subprocess
 import multiprocessing
 import zipfile as zf
 
+try:
+   import cPickle as pickle
+except:
+   import pickle
+   
 from io import BytesIO, TextIOWrapper
 
 import ncbi.datasets
@@ -58,13 +63,15 @@ class Guide:
 class ViralCutCollection:
     def __init__(self):
         self.guides = {}
+        self.gene_properties = {}
 
     def __getitem__(self, key):
-        if key not in self.guides:
-            return None
-        return self.guides[key]
+        k = self._get_guide_key(key)
+        return self.guides[k]
 
     def __setitem__(self, key, value):
+        if key not in self.guides:
+            key = self._get_guide_key(key, ignore_nonexist=True)
         self.guides[key] = value
 
     def __iter__(self):
@@ -72,12 +79,38 @@ class ViralCutCollection:
             yield g
 
     def __str__(self):
-        out = ""
-        for g in self.guides:
-            out += f"{self.guides[g]}\n"
-        return out
+        props = {
+            'num-guides' : len(self.guides)
+        }
         
-    def to_dataframe(self):
+        if 'geneId' in self.gene_properties:
+            props['gene-id'] = self.gene_properties['geneId']
+        
+        strProps = ' '.join([
+            f"{x}='{props[x]}'"
+            for x in props
+        ])
+        
+        return f'<ViralCutCollection {strProps}>'
+    
+    def _get_guide_key(self, key, ignore_nonexist=False):
+        if key in self.guides:
+            return key
+        
+        # an exact match did not exist. check for substrings.
+        # usually this is helpful if a PAM-less sequence is provided
+        # i.e., ATCGATCGATCGATCGATCGAGG versus ATCGATCGATCGATCGATCG
+        keys = [x for x in self.guides if x[0:len(key)] == key]
+        
+        if len(keys) > 1:
+            if not ignore_nonexist:
+                raise RuntimeError(f'Multiple matches to {key} in collection')
+        elif len(keys) == 1:
+            return keys[0]
+        else:
+            return key
+    
+    def guides_to_dataframe(self):
         all_props = set()
         
         for g in self.guides:
@@ -100,6 +133,60 @@ class ViralCutCollection:
         
         return pd.DataFrame(data)
 
+    def assembly_scores_to_dataframe(self):
+        '''This function takes the assembly scores of each guide (dict of lists)
+        and merges them into one data structure (dict of lists). Adding the extract
+        column for the guide identity is needed.
+        
+        Returns:
+            A DataFrame
+        '''
+        
+        scores = {'guide' : []}
+        
+        for guide in self.guides:
+        
+            for k in self.guides[guide].assembly_scores:
+                if k not in scores:
+                    scores[k] = []
+                    
+                scores[k] += self.guides[guide].assembly_scores[k]
+            
+            scores['guide'] += [guide] * len(self.guides[guide].assembly_scores[k])
+            
+        return pd.DataFrame(scores)
+
+    def to_pickle(self, filename):
+        with open(filename, 'wb') as fp:
+            pickle.dump(self.__dict__, fp)
+    
+    def to_human_readable_files(self, filename):
+        df_guides = self.guides_to_dataframe()
+        df_assembly_scores = self.assembly_scores_to_dataframe()
+    
+        with open(f"{filename}-guides.csv", "w") as fp:
+            df_guides.to_csv(fp, index=False)
+
+        with open(f"{filename}-guides.md", "w") as fp:
+            df_guides.to_markdown(fp, index=False)
+                
+        with open(f"{filename}-gene-properties.txt", "w") as fp:
+            fp.write(
+                json.dumps(
+                    self.gene_properties,
+                    sort_keys=True,
+                    indent=4
+                )
+            )
+                
+        with open(f"{filename}-assembly-scores.csv", "w") as fp:
+            df_assembly_scores.to_csv(fp, index=False)
+    
+def collection_from_pickle(filename):
+    collection = ViralCutCollection()
+    with open(filename, 'rb') as fp:
+        collection.__dict__ = pickle.load(fp)
+    return collection
 
 def parse_fna(stream):
     '''Parse some iterable object as a multi-FASTA file.
@@ -603,8 +690,16 @@ def get_cached_gene_information_by_id(gene_id):
     Returns:
         A dictionary of properties
     '''
+    dir = get_gene_cache(gene_id, mkdir=False)
+    report_path = os.path.join(dir, 'data_report.json')
+    if os.path.exists(report_path):
+        with open(report_path, 'r') as fp:
+            return json.loads(fp.readline())
     
-    
+    if config.VERBOSE:
+        print(f'Could not find data report for gene #{gene_id}')
+        
+    return {}
 
 def get_cached_tax_ids():
     '''This function crawls the assemblies cache to extract taxonomy IDs

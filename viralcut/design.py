@@ -53,8 +53,6 @@ def process_gene_by_id(gene_id):
 
     gene_id, seq = list(get_cached_gene_seqs_by_id([gene_id]))[0]
 
-    gene_info = get_cached_gene_information_by_id(gene_id)
-
     collection = ViralCutCollection()
 
     for pattern, strand, seqModifier in [
@@ -68,6 +66,8 @@ def process_gene_by_id(gene_id):
             collection[target23]['start'] = m.start()
             collection[target23]['end'] = m.start() + 23
             collection[target23]['strand'] = strand
+
+    collection.gene_properties = get_cached_gene_information_by_id(gene_id)
 
     return collection
 

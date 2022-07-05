@@ -1,0 +1,1 @@
+from .data import collection_from_pickle

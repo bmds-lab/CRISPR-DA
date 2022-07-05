@@ -168,21 +168,21 @@ def run_analysis(gene_id, accessions=None):
     scores = run_offtarget_scoring(targets_to_score, accessions)
 
     # Add scores to the collection
-    for accession, seq, mit, cfd, uniq, total in zip(
-        scores['accession'],
-        scores['sequence'],
-        scores['mit'],
-        scores['cfd'],
-        scores['unique_sites'],
-        scores['total_sites'],
-    ):
-        collection[seq].add_assembly_score(
-            accession,
-            score_name,
-            score,
-            unique_sites,
-            total_sites
-        )
+    for score_name in config.ISSL_SCORES:
+        for accession, seq, score, uniq, total in zip(
+            scores['accession'],
+            scores['sequence'],
+            scores[score_name],
+            scores['unique_sites'],
+            scores['total_sites'],
+        ):
+            collection[seq].add_assembly_score(
+                accession,
+                score_name,
+                score,
+                uniq,
+                total
+            )
 
     if config.VERBOSE:
         print('Done.')
