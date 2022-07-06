@@ -29,7 +29,6 @@ from . import analysis
 from .design import process_gene_by_id, run_mini_crackling
 from .data import *
 
-OtsScores = namedtuple('OtsScore', ['mit', 'cfd'])
 
 def _run_issl_score(accession, path_guides, path_stdout):
     # assume the index exists and there is only one.

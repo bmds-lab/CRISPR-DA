@@ -4,6 +4,7 @@ import * as d3f from "https://cdn.skypack.dev/d3-fetch@3";
 var fp_scores = "scores"; //"test.scores.csv"
 var fp_species = "species"; //"test.species.csv" // "Euk.tree.annotations2.csv"
 var fp_newick = "newick"; //"test.newick.txt"
+var fp_guides = "guides";
 
 var y_scale = 1;
 var x_scale = 1;
@@ -12,17 +13,54 @@ var font_size = 14;
 
 var lca; // last common ancenstor
 
-var annotations = "";//await d3f.csv(fp_species);
-var euk = "";//await d3f.text("/newick");
-var euk = "";//await d3f.text(fp_newick);
-var scores = "";//await d3f.csv(fp_scores);
+var annotations = null;
+var scores = null;
+var root = null;
+
+var tree = null;
+var svg = null;
+var vis = null;
 
 async function update_data() {
     var root_tax_id = document.getElementById('txtRootTaxId').value;
-    //console.log(root_tax_id);
+    
+    var e = document.getElementById("txtRootTaxId");
+    var root_tax_id = e.options[e.selectedIndex].text;
+    var root_tax_id = e.options[e.selectedIndex].value;
+    
+    var guide_seq = document.getElementById('selGuide').value;
+
+    var newick_str = await d3f.text(fp_newick + "/" + root_tax_id);
     annotations = await d3f.csv(fp_species + "/" + root_tax_id);
-    euk = await d3f.text(fp_newick + "/" + root_tax_id);
-    scores = await d3f.csv(fp_scores + "/" + root_tax_id);
+    scores = await d3f.csv(fp_scores + "/" + root_tax_id + "/" + guide_seq);
+    
+    emptyTreeAndVis();
+    
+    root = parseNewick(newick_str);
+    
+    traverseAndAnnotate(root);
+    getTotalLength(root);
+    redrawTree();
+}
+
+function emptyTreeAndVis() {
+    tree = d3.layout.cluster().size([1920, 1080]);
+
+    var g = svg.select("g")
+    if (g.size()) {
+        svg.select('g').remove();
+    }
+    vis = svg.append("g")
+       .attr("transform", "translate(50, 50)");
+}
+
+async function populateGuidesSelect() {
+    var guides = await d3f.csv(fp_guides);
+    var selGuide = d3.select("#selGuide");
+    guides.forEach(function(d) {
+        var seq = d.guide;
+        selGuide.append("option").attr("value", seq).text(seq)
+    });
 }
 
 function parseNewick(a) {
@@ -138,7 +176,7 @@ function click(d) {
     } else {
         d.children = d.branchset;
     }
-    redraw_tree(d);
+    redrawTree(d);
 }
 
 function name(node) {
@@ -193,7 +231,7 @@ function collapseNthSubtree(root_node, n) {
             root_node.children = root_node.branchset;
         }
     }    
-    redraw_tree(root_node);
+    redrawTree(root_node);
 }
 
 function getLinkColour(score) {
@@ -219,7 +257,9 @@ function getLinkColour_old(value){
     return ["hsl(",hue,",100%,50%)"].join("");
 }
 
-function redraw_tree(source) {
+
+
+function redrawTree(source) {
     var nodes = tree.nodes(root);
     var links = tree.links(nodes);
 
@@ -371,63 +411,42 @@ function redraw_tree(source) {
     
 };
 
-
-
-d3.select("#searchButton").on("click", function() {
-    update_data();
-
-    redraw_tree(root);
-});
-
-d3.select("#rangeHorizontalScale").on("change", function() {
-    redraw_tree(root);
-});
-d3.select("#rangeVerticalScale").on("change", function() {
-    redraw_tree(root);
-});
-
-d3.select("#zoomReset").on("click", function() {
-    zoomListener.translate([0, 0]).scale(1);
-    redraw_tree(root);
-});
-
-
-
-
 function zoom() {
     vis.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
 }
 
 var zoomListener = d3.behavior.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
 
+d3.select("#btnUpdate").on("click", function() {
+    update_data();
+});
 
+d3.select("#rangeHorizontalScale").on("change", function() {
+    redrawTree(root);
+});
+d3.select("#rangeVerticalScale").on("change", function() {
+    redrawTree(root);
+});
 
-await update_data();
+d3.select("#zoomReset").on("click", function() {
+    zoomListener.translate([0, 0]).scale(1);
+    redrawTree(root);
+});
 
-var vis = d3.select("#panelTree")
+svg = d3.select("#panelTree")
     .append("svg")
     .attr("width", '100%')
     .attr("height", '100%')
-    .call(zoomListener)
-    .append("g")
-    .attr("transform", "translate(50, 50)");
+    .call(zoomListener);
+    
+await populateGuidesSelect();
+
+await update_data();
+
 window.vis = vis;
-var tree = d3.layout.cluster()
-    .size([1920, 1080]);
-
-var root = parseNewick(euk);
-
-root.parent = {
-    x: 0,
-    y: 0
-};
-
-root.totalLength = 0;
+window.svg = svg;
 
 
 
-traverseAndAnnotate(root);
-getTotalLength(root);
-
-redraw_tree(root);
-collapseNthSubtree(root, 2);
+redrawTree(root);
+//collapseNthSubtree(root, 2);

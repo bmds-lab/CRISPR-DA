@@ -21,7 +21,7 @@ from .data import get_assembly_cache
 
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 from ete3.parser.newick import read_newick, write_newick
-from plot_eteTree import *
+from ete3.coretype.tree import TreeNode
 
 def add_assembly_info_to_dataframe(dfIn, colAccession='accession', fieldsToAdd=['organismName', 'strain', 'taxId', 'assemblyInfo/assemblyLevel', 'assemblyInfo/assemblyName']):
     '''Given some DataFrame with column `colAccession`, add additional columns from the data report
@@ -154,7 +154,7 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
     
     return tax_ids if not uniq else list(set(tax_ids))
 
-def get_descendant_tax_ids_from_root_tax_id(root_tax_id=None, max_depth=None):
+def get_descendant_tax_ids_from_root_tax_id(tax_id, max_depth=None, max_nodes=None):
     '''Given some taxonomy ID, find the taxonomy IDs of descendant nodes
     
     Arguments:
@@ -164,28 +164,54 @@ def get_descendant_tax_ids_from_root_tax_id(root_tax_id=None, max_depth=None):
         A list of tax IDS
         
     '''
-    if root_tax_id is None:
-        root_tax_id = config.ROOT_TAX_ID
     
-    ncbi = NCBITaxa()
-    tree = ncbi.get_topology([root_tax_id])
+    ncbi = NCBITaxa() 
+    tree = ncbi.get_topology(
+        [tax_id],
+        intermediate_nodes=True
+    )
+    
+    include_nodes = set()
+    for idx, i in enumerate(tree.traverse(strategy="levelorder")):
+        depth = len(i.get_ancestors()) - 1
 
-    tree.depth = 0
+        
+        doBreak = False
+        doBreak |= (max_nodes is not None and len(include_nodes) > max_nodes)
+        doBreak |= (max_depth is not None and depth > max_depth)
+        
+        if doBreak:
+            break
 
-    ids = []
+        include_nodes.update([
+            int(node.name) 
+            for node in i.up.children
+        ])
+        
+    return list(include_nodes)
     
-    tovisit = deque([tree])
-    while len(tovisit)>0:
-        node = tovisit.popleft()
-        if max_depth is None or node.depth < max_depth:
-            ids.append(int(node.name))
-            
-        if len(node.children) > 0:
-            for child in node.children:
-                child.depth = node.depth + 1
-            tovisit.extend(node.children)
-    
-    return ids
+    #if root_tax_id is None:
+    #    root_tax_id = config.ROOT_TAX_ID
+    #
+    #ncbi = NCBITaxa()
+    #tree = ncbi.get_topology([root_tax_id])
+    #
+    #tree.depth = 0
+    #
+    #ids = []
+    #
+    #tovisit = deque([tree])
+    #while len(tovisit)>0:
+    #    node = tovisit.popleft()
+    #    if max_depth is None or node.depth < max_depth:
+    #        ids.append(int(node.name))
+    #        
+    #    if len(node.children) > 0:
+    #        for child in node.children:
+    #            child.depth = node.depth + 1
+    #        tovisit.extend(node.children)
+    #
+    #return ids
 
 def get_tax_ranks_in_order(root_node=10239):
     '''Not finished.
@@ -244,6 +270,80 @@ def generate_newick_string_from_tax_ids(tax_ids):
             tax_ids
         )
     )
+
+
+def generate_limited_newick_string_from_root_tax_id(tax_id, max_depth=None, max_nodes=None):
+    '''
+    (DEPRECATED)
+    Get entire levels of the tree until max_depth is reached or until max_nodes is reached, whichever comes first.
+    
+    Arguments:
+        tax_ids (list):  The taxonomy IDs to include in the tree
+        
+    Returns:
+        A Newick string
+    '''
+    return None
+    ncbi = NCBITaxa() 
+    tree = ncbi.get_topology(
+        [tax_id],
+        intermediate_nodes=True
+    )
+    return write_newick(get_descendant_tax_ids_from_root_tax_id(tax_id, max_depth=max_depth, max_nodes=max_nodes))
+    
+    include_nodes = set()
+    for idx, i in enumerate(tree.traverse(strategy="levelorder")):
+        depth = len(i.get_ancestors()) - 1
+
+        include_nodes.update([
+            int(node.name) 
+            for node in i.up.children
+            if len(node.up.children) < 50
+        ])
+        
+        doBreak = False
+        doBreak |= (max_nodes is not None and len(include_nodes) > max_nodes)
+        doBreak |= (max_depth is not None and depth > max_depth)
+        
+        if doBreak:
+            break
+     
+    tree = ncbi.get_topology(
+        include_nodes
+    )    
+    return write_newick(tree)
+    
+    ### include_nodes = []
+    ### last_parent_tax_id = tree.name
+    ### depth = 0
+    ### while True:
+    ###     tax_id = i.name
+    ###     
+    ###     # how many siblings does this node have?
+    ###     # this count includes the current node (i.e., how many children does
+    ###     # the parent have?)
+    ###     num_siblings = len(i.up.children)
+    ###     
+    ###     # how many children dose this node have?
+    ###     num_child = len(i.get_children())
+    ###     
+    ###     # how many niblings, as in nieces and nephews, does this node have?
+    ###     # this count includes the children of the current node
+    ###     # i.e., how many grandchildren does the parent have? 
+    ###     num_niblings = sum([
+    ###         len(sibling.get_children())
+    ###         for sibling in i.up.sisters
+    ###     ])
+    ###     
+    ###     # only add 
+    ###     if len(include_nodes) < max_nodes and depth < max_depth:
+    ###         break
+    ###     else:
+    ###         include.nodes(i.up.children)
+    ### 
+    ### return write_newick(
+    ###     root_node
+    ### )
     
 def generate_newick_string_from_accessions(accessions, rank_limit=None):
     '''This function generates Newick string of the data needed to visualise the
@@ -255,15 +355,10 @@ def generate_newick_string_from_accessions(accessions, rank_limit=None):
     Returns:
         A Newick string
     '''
-    
-    ncbi = NCBITaxa()
 
-    return write_newick(
-        ncbi.get_topology(
-            get_tax_ids_from_accessions(
-                accessions
-            ),
-            rank_limit=rank_limit
+    return generate_newick_string_from_tax_ids(
+        get_tax_ids_from_accessions(
+            accessions
         )
     )    
 

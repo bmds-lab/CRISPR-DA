@@ -31,7 +31,45 @@
             <div class="panel panelDataControls">
                 <p>
                     Root taxonomy ID: 
-                    <input type="text" value="11118" placeholder="Enter taxonomy ID" id="txtRootTaxId" onkeydown="if (event.keyCode == 13){ document.getElementById('searchButton').click()}">
+                    <!-- <input type="text" value="11118" placeholder="Enter taxonomy ID" id="txtRootTaxId"> -->
+                    <select id="txtRootTaxId">
+                        <option value="10239">- Viruses</option>
+                        <option value="687329">-- Anelloviridae</option>
+                        <option value="2842365">--- 2842365 Aleptorquevirus</option>
+                        <option value="687331">--- 687331 Alphatorquevirus</option>
+                        <option value="687332">--- 687332 Betatorquevirus</option>
+                        <option value="2842598">--- 2842598 Chitorquevirus</option>
+                        <option value="687334">--- 687334 Deltatorquevirus</option>
+                        <option value="687335">--- 687335 Epsilontorquevirus</option>
+                        <option value="687337">--- 687337 Etatorquevirus</option>
+                        <option value="687333">--- 687333 Gammatorquevirus</option>
+                        <option value="227307">--- 227307 Gyrovirus</option>
+                        <option value="687339">--- 687339 Iotatorquevirus</option>
+                        <option value="1218487">--- 1218487 Kappatorquevirus</option>
+                        <option value="1218489">--- 1218489 Lambdatorquevirus</option>
+                        <option value="2560179">--- 2560179 Mutorquevirus</option>
+                        <option value="2560191">--- 2560191 Nutorquevirus</option>
+                        <option value="2842923">--- 2842923 Omegatorquevirus</option>
+                        <option value="2843007">--- 2843007 Rhotorquevirus</option>
+                        <option value="2843044">--- 2843044 Sigmatorquevirus</option>
+                        <option value="2843072">--- 2843072 Tautorquevirus</option>
+                        <option value="2843081">--- 2843081 Tettorquevirus</option>
+                        <option value="687338">--- 687338 Thetatorquevirus</option>
+                        <option value="2843130">--- 2843130 Wawtorquevirus</option>
+                        <option value="2843145">--- 2843145 Xitorquevirus</option>
+                        <option value="687336">--- 687336 Zetatorquevirus</option>
+                        <option value="363628">--- 363628 unclassified Anelloviridae</option>
+                        <option value="1034770">--- 1034770 environmental samples</option>
+                        
+                        <option value="10239">10239 is viruses (superkingdom)</option>
+                        <option value="11118" selected>11118 is Coronaviridae (rank: Family)</option>
+                        <option value="10240">10240 is Poxviridae (family)</option>
+                        <option value="10242">10242 is Orthopoxvirus (genus)</option>
+                        <option value="10245">10245 is Vaccinia virus (species)</option>
+                        <option value="619591">619591 is Monkeypox virus Zaire-96-I-16 (species)</option>
+                        <option value="2697049">2697049 is Severe acute respiratory syndrome coronavirus 2 (species)</option>
+                    </select>
+                    <input type="button" value="Update" id="btnUpdate">
                 </p>
                 
                 <br><br>
@@ -41,7 +79,7 @@
                 Depth: <span id="depth"></span>
                 
                 <br><br>
-                <select name="rankLimit" id="selRankLimit">
+                <select name="selGuide" id="selGuide">
                     
                 </select>
             </div>

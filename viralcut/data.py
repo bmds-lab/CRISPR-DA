@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import multiprocessing
+import math
 import zipfile as zf
 from glob import glob
 from collections import deque
@@ -115,6 +116,15 @@ class ViralCutCollection:
         else:
             return key
     
+    def get_tax_ids_in_analysis(self):
+        '''Fetches a list of NCBI taxonomy IDs that exist in the Collection
+        
+        Returns:
+            A list of integers
+        '''
+        
+        return list(map(int, self.accession_to_tax_id.values()))
+    
     def guides_to_dataframe(self):
         all_props = set()
         
@@ -168,6 +178,108 @@ class ViralCutCollection:
         return pd.DataFrame(scores)
 
     def calculate_node_scores(self,
+        guides=None,
+        root_tax_id=None
+    ):
+        if root_tax_id is None:
+            root_tax_id = config.ROOT_TAX_ID
+
+        if config.VERBOSE:
+            print(f'Preparing tree, with root: {root_tax_id}')
+
+        ncbi = NCBITaxa()
+        tree = ncbi.get_topology([root_tax_id])
+        
+        if config.VERBOSE:
+            print(f'Preparing scores data structure')
+        
+        df_scores = self.assembly_scores_to_dataframe()
+        
+        '''
+        The following DataFrame is structured as following:
+           |    | accession       |   tax_id |
+           |---:|:----------------|---------:|
+           |  0 | GCA_000859285.1 |    85708 |
+           |  1 | GCA_000886535.1 |    11676 |
+           |  2 | GCA_000884175.1 |  1645793 |
+        '''
+        df_accs_to_tax_id = pd.DataFrame(self.accession_to_tax_id.items(), columns=['accession', 'tax_id'])
+        
+        '''
+        The following DataFrame is structured as following:
+           |    | guide                   | accession       | score_name   | score | unique_sites | total_sites |  tax_id |
+           |---:|:------------------------|:----------------|:-------------|------:|-------------:|------------:|--------:|
+           |  0 | TACACTAATTCTTTCACACGTGG | GCA_000859285.1 | mit          |   100 |            0 |           0 |   85708 |
+           |  1 | TACACTAATTCTTTCACACGTGG | GCA_000886535.1 | mit          |   100 |            0 |           0 |   11676 |
+           |  2 | TACACTAATTCTTTCACACGTGG | GCA_000884175.1 | cfd          |   100 |            0 |           0 | 1645793 |
+        '''
+        df_scores = df_scores.merge(df_accs_to_tax_id, on='accession', how='left')
+
+        score_names = ['mit'] #set(df_scores['score_name']):
+        
+        if guides is None:
+            guides = set(df_scores['guide'])
+            guides = [list(guides)[0]]
+        
+        if config.VERBOSE:
+            print(f'Indexing scores')
+        
+        df_scores.set_index(['tax_id', 'score_name', 'guide'], inplace=True)
+        df_scores.sort_index(inplace=True)
+        #pd.MultiIndex.from_frame(df_scores, names=['tax_id', 'score_name', 'guide'])
+        
+        data = {'tax_id': [], 'score_name' : [], 'guide' : [], 'score' : []}
+        
+        if config.VERBOSE:
+            print(f'Calculating node scores using depth-first traversal')
+        
+        # depth-first traversal
+        for idx, i in enumerate(tree.traverse(strategy="postorder")):
+            tax_id = int(i.name)
+            
+            for score_name in score_names:
+                
+                for guide in guides:
+                
+                    if len(i.children) == 0:
+                        # is a leaf so find minimum of assembly scores
+
+                        try:
+                            scores = df_scores.loc[(tax_id, score_name, guide), 'score']
+                            #print(tax_id, score_name, guide, '\n', scores, '\n\n\n')
+                            score = scores.max()
+                        except KeyError as e:
+                            score = 0
+                            
+                                    
+                    else:
+                        
+                        # find the minimum of child node scores
+                        immediate_child_tax_ids = [int(child.name) for child in i.children]
+
+                        if len(immediate_child_tax_ids) == 0:
+                            score = 0
+                        else:
+                            score = max([
+                                s
+                                for tax_id, s in zip(data['tax_id'], data['score'])
+                                if tax_id in immediate_child_tax_ids and not math.isnan(s)
+                            ], default=math.nan)
+                            
+                        score = 10_000.0 / (100.0 + score)
+
+                    data['score_name'].append(score_name)
+                    data['tax_id'].append(tax_id)
+                    data['guide'].append(guide)
+                    data['score'].append(score)
+            
+                    #print('\t', score_name, tax_id, i.up.name, guide, score)
+
+        return pd.DataFrame(data)
+        
+        
+
+    def calculate_node_scores_old(self,
         root_tax_id=None
     ):
         '''Starting at some root node of a ETE3 NCBI tax tree, calculate the nodescore of every 
