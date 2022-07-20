@@ -3,8 +3,13 @@ import * as d3f from "https://cdn.skypack.dev/d3-fetch@3";
 
 var fp_scores = "scores"; //"test.scores.csv"
 var fp_species = "species"; //"test.species.csv" // "Euk.tree.annotations2.csv"
+var fp_subspecies = "subspecies"; //"test.species.csv" // "Euk.tree.annotations2.csv"
 var fp_newick = "newick"; //"test.newick.txt"
+var fp_subnewick = "subnewick"; //"test.newick.txt"
+var fp_subtree = "subtree"; //"test.newick.txt"
 var fp_guides = "guides";
+
+var start_tax_id = 11118; //10239;
 
 var y_scale = 1;
 var x_scale = 1;
@@ -21,37 +26,30 @@ var tree = null;
 var svg = null;
 var vis = null;
 
-async function update_data() {
-    var root_tax_id = document.getElementById('txtRootTaxId').value;
-    
-    var e = document.getElementById("txtRootTaxId");
-    var root_tax_id = e.options[e.selectedIndex].text;
-    var root_tax_id = e.options[e.selectedIndex].value;
-    
+var count_nodes = 0;
+
+async function emptyAndUpdateDataAndVis(root_tax_id=start_tax_id) {
     var guide_seq = document.getElementById('selGuide').value;
 
-    var newick_str = await d3f.text(fp_newick + "/" + root_tax_id);
-    annotations = await d3f.csv(fp_species + "/" + root_tax_id);
+    //var newick_str = await d3f.text(fp_newick + "/" + root_tax_id);
+    //annotations = await d3f.csv(fp_species + "/" + root_tax_id);
     scores = await d3f.csv(fp_scores + "/" + root_tax_id + "/" + guide_seq);
-    
-    emptyTreeAndVis();
-    
-    root = parseNewick(newick_str);
-    
-    traverseAndAnnotate(root);
-    getTotalLength(root);
-    redrawTree();
-}
 
-function emptyTreeAndVis() {
+    // clear the SVG
     tree = d3.layout.cluster().size([1920, 1080]);
-
     var g = svg.select("g")
     if (g.size()) {
         svg.select('g').remove();
     }
-    vis = svg.append("g")
-       .attr("transform", "translate(50, 50)");
+    vis = svg.append("g");
+       //.attr("transform", "translate(50, 50)");
+    
+    var subtree = await getAnnotatedSubTree(root_tax_id);
+    root = subtree;
+    
+    //traverseAndAnnotate(root);
+    //getTotalLength(root);
+    redrawTree();
 }
 
 async function populateGuidesSelect() {
@@ -93,40 +91,12 @@ function parseNewick(a) {
 function findScore(node) {
     var number = node.name;
     scores.forEach(function(d) {
-        if (+d.tax_id == +number) {
+        if (+d.tax_id == +number) { // + converts to numerical representation
             node.score = d.score;
         }
     });
 };
 
-function findSpecies(node) {
-    var number = node.name;
-    annotations.forEach(function(d) {
-        if (+d.taxId == +number) {
-            node.species = d.organismName;
-            node.commonName = d.commonName;
-            node.taxonomy = d.taxonomy;
-            node.taxonomyStr = d.taxonomy;
-        }
-    });
-};
-
-function traverseAndAnnotate(root_node) {
-    root_node.children = root_node.branchset;
-    var queue = [];
-    queue.push(root_node);
-    while (queue.length > 0) {
-        var node = queue.shift(); // this is O(n)
-        findSpecies(node);
-        findScore(node);
-        if (typeof node.branchset != "undefined") {
-            node.branchset.forEach(function (d) {
-               node.children = node.branchset;
-               queue.push(d); 
-            });
-        }
-    }
-};
 
 function getTotalLength(node) {
     //console.log(node);
@@ -158,87 +128,118 @@ function adjustLength(n, offset) {
 }
 
 function rightAngleDiagonal(d, i) {
+    //return "M" + d.source.y + "," + d.source.x
+    //            + "C" + (d.source.y) + " " + d.source.x
+    //            + "," + (d.source.y+10) + " " + (d.source.x+10)
+    //            // 50 and 150 are coordinates of inflexion, play with it to change links shape
+    //            + ", " + d.target.y + " " + d.target.x;
+    
     return "M" + d.source.y + "," + d.source.x +
         "V" + d.target.x + "H" + d.target.y;
 }
 
-function bolded(is_mousedover) {
-    return function(d) {
-        d3.select(this).classed("link_bold", is_mousedover);
-        d3.select(this.source).classed("link_bold", is_mousedover);
-    }
+async function getAnnotatedSubTree(root_tax_id) {
+    var subtree = null;
+    await d3f.json(fp_subtree + "/" + root_tax_id)
+        .then(function(json) {
+            
+            // parse the subtree newick string
+            var newick = json['newick'];
+            subtree = parseNewick(newick);
+            
+            // add the annotations
+            var annots = json['annotations']['commonName'];
+            var queue = [];
+            queue.push(subtree);
+            while (queue.length > 0) {
+                var node = queue.shift(); // this is O(n)
+                
+                node.species = annots[node.name]; //d.organismName;
+                node.commonName = annots[node.name]; //d.commonName;
+                node.taxonomy = annots[node.name]; //d.taxonomy;
+                node.taxonomyStr = annots[node.name]; //d.taxonomy;
+                
+                //findScore(node);
+                
+                if (typeof node.branchset != "undefined") {
+                    node.branchset.forEach(function (node_child) {
+                       node_child.parent = node;
+                       node.children = node.branchset;
+                       queue.push(node_child); 
+                    });
+                }
+            }
+            //getTotalLength(subtree);
+        })
+        .catch(function(error) {
+            console.log('something went wrong: ');
+            console.log(error);
+        });
+    
+    return subtree;
 }
 
-function click(d) {
+function doClick(node_clicked) {
     // collapse subtree
-    if (d.children) {
-        d.children = null;
+    if (node_clicked.children) {
+        console.log('collapse node with children');
+        // remove children so the subtree collapses.
+        // children are retained in `.branchset`.
+        node_clicked.children = null;
+        redrawTree(node_clicked);
+        
     } else {
-        d.children = d.branchset;
+        console.log('node has no children expanded');
+        console.log(node_clicked);
+        if (node_clicked.branchset) {
+            console.log('node has a branch to expand');
+            // the subtree will expand if `.branchset` contains the children
+            node_clicked.children = node_clicked.branchset;
+            redrawTree(node_clicked);
+        } else {
+            console.log('asking the server for a branch to expand');
+            // `.branchset` was empty. Request the subtree, if it exists.
+            
+            console.log('clicked on ' + node_clicked.name + ' :');
+            console.log(node_clicked);
+            var subtree = getAnnotatedSubTree(node_clicked.name)
+                .then(function(st) {
+                    console.log('subtree: ');
+                    console.log(st);
+                    st.parent = node_clicked;
+                    node_clicked.children = st.children;
+                    node_clicked.branchset = st.children;
+                    console.log(node_clicked);
+                    redrawTree(st);
+                });            
+            
+
+        }
     }
-    redrawTree(d);
+    //redrawTree(node_clicked);
 }
 
 function name(node) {
     return node.commonName;
-    //if (node.children) {
-    //    return "";
-    //} else {
-    //    return node.commonName;
-    //}
-}
-
-function makeAncestors(leaf) {
-    var temp = leaf.parent;
-    var ancestors = [leaf.id];
-    while (temp.parent) {
-        ancestors.unshift(temp.id);
-        temp = temp.parent;
-    }
-    leaf.ancestors = ancestors;
-}
-
-function traverseAncestors(leaf, set_inpath) {
-    // looks through ancestors and sets them as in the path, until get to the LCA
-    // we have to clear the path out regardless
-    var temp = leaf;
-    while (leaf.id != 0) {
-        leaf.in_path = false;
-        leaf = leaf.parent;
-    }
-    
-    leaf = temp;
-    if (set_inpath) {
-        while (leaf.id != lca) {
-            //console.log(leaf);
-            leaf.in_path = true;
-            leaf = leaf.parent;
-        }
-    }
-}
-
-function collapseNthSubtree(root_node, n) {
-    //console.log(root_node.commonName, n);
-    if (root_node.children) {
-        root_node.children.forEach(function (d) {
-            collapseNthSubtree(d, n - 1);
-        });
-    }
-    if (n <= 0) {
-        if (root_node.children) {
-            root_node.children = null;
-        } else {
-            root_node.children = root_node.branchset;
-        }
-    }    
-    redrawTree(root_node);
 }
 
 function getLinkColour(score) {
     // https://gist.github.com/mlocati/7210513
+    
+    //console.log(score);
+    
+    return '#ccc';
+    if (typeof score == "undefined") {
+        return '#000';
+    }
+    
+    if (score == 0) {
+        return '#0000FF';
+    }
+    
     var perc = score;
     var r, g, b = 0;
-    if(perc > 50) {
+    if(perc < 50) {
         r = 255;
         g = Math.round(5.1 * perc);
     }
@@ -250,35 +251,32 @@ function getLinkColour(score) {
     return '#' + ('000000' + h.toString(16)).slice(-6);
 }
 
-function getLinkColour_old(value){
-    // https://stackoverflow.com/a/17268489/12891825
-    //value from 0 to 1
-    var hue=((1-value)*120).toString(10);
-    return ["hsl(",hue,",100%,50%)"].join("");
-}
-
-
-
 function redrawTree(source) {
+    console.log(root);
     var nodes = tree.nodes(root);
+    console.log(nodes);
     var links = tree.links(nodes);
-
+    console.log(links);
     adjustLength(nodes[0], 0);
 
     vis.selectAll(".link")
         .data(links, function(d) { 
+            //console.log(d);
             return d.target.id;
         })
         .enter()
         .append("path")
         .attr("class", "link")
         .attr("fill", "none")
-        .attr("stroke", "black")
+        .attr("stroke", "#ccc")
         .attr("d", rightAngleDiagonal);
+        
 
     var node = vis.selectAll("g.node")
         .data(nodes, function(d, i) {
-            return d.id || (d.id = i);
+            //console.log(i, d.species, d.name);
+            count_nodes++;
+            return d.id || (d.id = (count_nodes));
         });
 
     var nodeEnter = node.enter()
@@ -287,11 +285,13 @@ function redrawTree(source) {
         .attr("transform", function(d) {
             return "translate(" + d.y + "," + d.x + ")";
         })
-        .on("click", click);
+        .on("click", doClick);
 
     nodeEnter.append("circle")
-        .attr("r", 8)
-        .attr("fill", "black")
+        .attr("r", 5)
+        .style("fill", "#69b3a2")
+        .attr("stroke", "black")
+        .style("stroke-width", 2)
         .on("mouseover", function(d) {
             d3.select("#commonName").text(d.commonName);
             d3.select("#score").text(d.score);
@@ -300,8 +300,21 @@ function redrawTree(source) {
         });
 
     nodeEnter.append("text")
-        .attr("dx", 5)
-        .attr("dy", 3)
+        .attr("dx", 8)
+        .attr("dy", function(d) {
+            if (d.children) {
+                return -5;
+            } else {
+                return font_size/3;
+            }
+        })
+        .attr('transform', function(d) {
+            if (d.children) {
+                return 'rotate(-6, 0, 0)';
+            } else {
+                return '';
+            }
+        })
         .style("font-size", font_size + "px")
         .text(function(d) {
             return name(d)
@@ -313,50 +326,32 @@ function redrawTree(source) {
             d3.select("#depth").text(d.depth);
         });
      
-    // when nodes are updated
+    // when nodes are updated/moved/etc.
     var nodeUpdate = node.transition()
         .duration(duration)
         .attr("transform", function(d) {
             return "translate(" + d.y + "," + d.x + ")";
-        });
-
-    nodeUpdate.select("circle")
-        .attr("r", function(d) {
-            if (d.id == lca) {
-                return 5;
-            } else {
-                return 3;
-            }
-        });
+        })
+        .attr("opacity", 1)
+        .attr("display", "inline");
 
     nodeUpdate.select("text")
-        .style("fill-opacity", 1)
         .style("font-size", function (d) { 
             if (d.children) { 
-                return "10px";
+                return (font_size-2) + "px";
             } else {
-                return "14px";
+                return font_size + "px";
             } 
-        })
-        .text(function(d) {
-            return name(d)
         });
-        
-    
+
     // when nodes are collapsed
     var nodeExit = node.exit().transition()
         .duration(duration)
         .attr("transform", function(d) {
             return "translate(" + source.y + "," + source.x + ")";
-        });
-
-    // make circle really small 
-    nodeExit.select("circle")
-      .attr("r", 1e-6);
-
-    // make text invisible
-    nodeExit.select("text")
-      .style("fill-opacity", 1e-6);
+        })
+        .attr("opacity", 0)
+        .attr("display", "none");
 
     // update the links
     var link = vis.selectAll("path.link")
@@ -415,10 +410,14 @@ function zoom() {
     vis.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
 }
 
-var zoomListener = d3.behavior.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
+var zoomListener = d3.behavior.zoom().scaleExtent([0.5, 5]).on("zoom", zoom);
 
-d3.select("#btnUpdate").on("click", function() {
-    update_data();
+d3.select("#btnUpdate").on("click", function(t) {
+    var e = document.getElementById("txtRootTaxId");
+    var root_tax_id = e.options[e.selectedIndex].text;
+    var root_tax_id = e.options[e.selectedIndex].value;
+    
+    emptyAndUpdateDataAndVis(root_tax_id);
 });
 
 d3.select("#rangeHorizontalScale").on("change", function() {
@@ -428,10 +427,10 @@ d3.select("#rangeVerticalScale").on("change", function() {
     redrawTree(root);
 });
 
-d3.select("#zoomReset").on("click", function() {
-    zoomListener.translate([0, 0]).scale(1);
-    redrawTree(root);
-});
+//d3.select("#zoomReset").on("click", function() {
+//    zoomListener.translate([0, 0]).scale(1);
+//    redrawTree(root);
+//});
 
 svg = d3.select("#panelTree")
     .append("svg")
@@ -439,14 +438,141 @@ svg = d3.select("#panelTree")
     .attr("height", '100%')
     .call(zoomListener);
     
-await populateGuidesSelect();
-
-await update_data();
+populateGuidesSelect()
+    .then(emptyAndUpdateDataAndVis);
+    //.then(redrawTree);
+    //.then(function() {
+    //    collapseNthSubtree(root, 2);
+    //});
 
 window.vis = vis;
 window.svg = svg;
 
 
 
-redrawTree(root);
-//collapseNthSubtree(root, 2);
+
+function collapseNthSubtree(root_node, n) {
+    //console.log(root_node.commonName, n);
+    if (root_node.children) {
+        root_node.children.forEach(function (d) {
+            collapseNthSubtree(d, n - 1);
+        });
+    }
+    if (n <= 0) {
+        if (root_node.children) {
+            root_node.children = null;
+        } else {
+            root_node.children = root_node.branchset;
+        }
+    }    
+    redrawTree(root_node);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+// archive
+/*
+function findSpecies(node) {
+    var number = node.name;
+    annotations.forEach(function(d) {
+        if (+d.taxId == +number) { // + converts to numerical representation
+            node.species = d.organismName;
+            node.commonName = d.commonName;
+            node.taxonomy = d.taxonomy;
+            node.taxonomyStr = d.taxonomy;
+        }
+    });
+};
+
+function traverseAndAnnotate(root_node) {
+    root_node.children = root_node.branchset;
+    var queue = [];
+    queue.push(root_node);
+    while (queue.length > 0) {
+        var node = queue.shift(); // this is O(n)
+        findSpecies(node);
+        findScore(node);
+        if (typeof node.branchset != "undefined") {
+            node.branchset.forEach(function (d) {
+               node.children = node.branchset;
+               queue.push(d); 
+            });
+        }
+    }
+};
+
+
+function bolded(is_mousedover) {
+    return function(d) {
+        d3.select(this).classed("link_bold", is_mousedover);
+        d3.select(this.source).classed("link_bold", is_mousedover);
+    }
+}
+
+
+
+
+
+
+
+            
+            //// get annotations
+            //d3f.csv(fp_subspecies + "/" + d.name)
+            //    .then(function (csv) {
+            //        csv.forEach(function (row) {
+            //            annotations.push(row);                        
+            //        });
+            //    })
+            //    .catch(function(error) {
+            //        console.log('something went wrong: ');
+            //        console.log(error);
+            //    });
+            //
+            //console.log(annotations);
+            //
+            //// get newick string for subtree
+            //d3f.text(fp_subnewick + "/" + d.name)
+            //    .then(function (newick) {
+            //        var subtree = parseNewick(newick);
+            //        traverseAndAnnotate(subtree);
+            //        getTotalLength(subtree);
+            //        
+            //        //d.branchset = subtree.children;
+            //        //d.children = d.branchset;
+            //        
+            //        console.log(d);
+            //        console.log(d.parent);
+            //        console.log(subtree);
+            //        
+            //        //d.parent = subtree;
+            //        d.children = subtree.children;
+            //        redrawTree(d);
+            //    })
+            //    .catch(function(error) {
+            //        console.log('something went wrong: ');
+            //        console.log(error);
+            //    });
+            
+            
+            
+            
+            
+            
+    .attr("y", function(d) {
+            if (d.children) {
+                console.log('adjusting y of label', d.y, d.y-10);
+                return d.y-10;
+            } else {
+                return d.y
+            }
+        });
+*/

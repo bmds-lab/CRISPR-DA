@@ -18,6 +18,7 @@ from . import config
 
 import ncbi.datasets
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
+from ete3.parser.newick import read_newick, write_newick
 import pandas as pd
 import tqdm
 
@@ -69,7 +70,10 @@ class ViralCutCollection:
         self.accessions = []
         self.accession_to_tax_id = {}
         self.gene_properties = {}
-        self.node_scores = {}
+        self.node_scores = pd.DataFrame()
+        self._ncbi = None
+        self._ncbi_tree = None
+        self._ncbi_tree_newick = None
 
     def __getitem__(self, key):
         k = self._get_guide_key(key)
@@ -125,28 +129,40 @@ class ViralCutCollection:
         
         return list(map(int, self.accession_to_tax_id.values()))
     
+    def get_ncbi_tax_tree(self):
+        if self._ncbi_tree is None:
+            self._ncbi_tree = self._ncbi.get_topology(
+                self.get_tax_ids_in_analysis(),
+                intermediate_nodes=True
+            )
+        return self._ncbi_tree
+    
     def guides_to_dataframe(self):
-        all_props = set()
-        
+        dfs = []        
         for g in self.guides:
-            for prop in self.guides[g].props:
-                all_props.add(prop)
-        
-        data = {'seq' : []}
-        
-        for g in self.guides:
-            data['seq'].append(g)
-
-            for prop in all_props:
-                if prop not in data:
-                    data[prop] = []
-                    
-                if prop in self.guides[g].props:
-                    data[prop].append(self.guides[g].props[prop])
-                else:
-                    data[prop].append(CODE_UNKNOWN)
-        
-        return pd.DataFrame(data)
+            df = g.assembly_scores_to_dataframe()
+            df['guide'] = g
+            dfs.append(df)
+        return pd.concat(dfs)
+    
+        #data = {'seq' : []}
+        #       all_props = set()
+        #       
+        #       for g in self.guides:
+        #           for prop in self.guides[g].props:
+        #               all_props.add(prop)
+        #     data['seq'].append(g)
+        #
+        #    for prop in all_props:
+        #        if prop not in data:
+        #            data[prop] = []
+        #            
+        #        if prop in self.guides[g].props:
+        #            data[prop].append(self.guides[g].props[prop])
+        #        else:
+        #            data[prop].append(CODE_UNKNOWN)
+        #
+        #return pd.DataFrame(data)
 
     def assembly_scores_to_dataframe(self):
         '''This function takes the assembly scores of each guide (dict of lists) and merges them 
@@ -187,8 +203,7 @@ class ViralCutCollection:
         if config.VERBOSE:
             print(f'Preparing tree, with root: {root_tax_id}')
 
-        ncbi = NCBITaxa()
-        tree = ncbi.get_topology([root_tax_id])
+        tree = self.get_ncbi_tax_tree()
         
         if config.VERBOSE:
             print(f'Preparing scores data structure')
@@ -213,34 +228,47 @@ class ViralCutCollection:
            |  1 | TACACTAATTCTTTCACACGTGG | GCA_000886535.1 | mit          |   100 |            0 |           0 |   11676 |
            |  2 | TACACTAATTCTTTCACACGTGG | GCA_000884175.1 | cfd          |   100 |            0 |           0 | 1645793 |
         '''
-        df_scores = df_scores.merge(df_accs_to_tax_id, on='accession', how='left')
-
-        score_names = ['mit'] #set(df_scores['score_name']):
         
+        df_accs_to_tax_id.set_index('accession')
+        df_scores.set_index(['accession', 'guide'])
+        df_scores = df_scores.merge(df_accs_to_tax_id, on='accession', how='left')
+        
+        score_names = ['mit'] #set(df_scores['score_name']):
+
+        df_scores.set_index(['tax_id', 'score_name', 'guide'], inplace=True)
+        df_scores.sort_index(inplace=True)
+    
+        # df_scores now looks like:
+        '''
+        | (tax_id, score_name, guide)               | accession       |   score |   unique_sites |   total_sites |
+        |:------------------------------------------|:----------------|--------:|---------------:|--------------:|
+        | (10243, 'cfd', 'AAACCTAGCCAAATGTACCATGG') | GCA_018595055.1 |       0 |              0 |             0 |
+        | (10243, 'cfd', 'AAACCTAGCCAAATGTACCATGG') | GCA_900323395.1 |       0 |              0 |             0 |
+        | (10243, 'cfd', 'AAACCTAGCCAAATGTACCATGG') | GCA_006458985.1 |       0 |              0 |             0 |
+        '''
+        
+        df_scores.to_csv('temp-20220719.txt', sep='\t')
         if guides is None:
             guides = set(df_scores['guide'])
             guides = [list(guides)[0]]
         
         if config.VERBOSE:
             print(f'Indexing scores')
-        
-        df_scores.set_index(['tax_id', 'score_name', 'guide'], inplace=True)
-        df_scores.sort_index(inplace=True)
-        #pd.MultiIndex.from_frame(df_scores, names=['tax_id', 'score_name', 'guide'])
-        
+
         data = {'tax_id': [], 'score_name' : [], 'guide' : [], 'score' : []}
         
         if config.VERBOSE:
             print(f'Calculating node scores using depth-first traversal')
         
         # depth-first traversal
-        for idx, i in enumerate(tree.traverse(strategy="postorder")):
-            tax_id = int(i.name)
+        for score_name in score_names:
             
-            for score_name in score_names:
+            for guide in guides:
                 
-                for guide in guides:
-                
+                tax_id_to_score = {}
+                for idx, i in enumerate(tree.traverse(strategy="postorder")):
+                    tax_id = int(i.name)
+                    
                     if len(i.children) == 0:
                         # is a leaf so find minimum of assembly scores
 
@@ -249,7 +277,7 @@ class ViralCutCollection:
                             #print(tax_id, score_name, guide, '\n', scores, '\n\n\n')
                             score = scores.max()
                         except KeyError as e:
-                            score = 0
+                            score = -101
                             
                                     
                     else:
@@ -258,101 +286,124 @@ class ViralCutCollection:
                         immediate_child_tax_ids = [int(child.name) for child in i.children]
 
                         if len(immediate_child_tax_ids) == 0:
-                            score = 0
+                            score = math.nan
                         else:
                             score = max([
-                                s
-                                for tax_id, s in zip(data['tax_id'], data['score'])
-                                if tax_id in immediate_child_tax_ids and not math.isnan(s)
+                                tax_id_to_score[tax_id]
+                                for tax_id in immediate_child_tax_ids
+                                if not math.isnan(tax_id_to_score[tax_id])
                             ], default=math.nan)
                             
                         score = 10_000.0 / (100.0 + score)
 
+                    tax_id_to_score[tax_id] = score
                     data['score_name'].append(score_name)
                     data['tax_id'].append(tax_id)
                     data['guide'].append(guide)
                     data['score'].append(score)
             
-                    #print('\t', score_name, tax_id, i.up.name, guide, score)
-
-        return pd.DataFrame(data)
+                    try:
+                        print('\t', score_name, tax_id, i.up.name, guide, score)
+                    except Exception as e:
+                        pass
+                        
+        if len(self.node_scores) == 0:
+            self.node_scores = pd.DataFrame(data)
+        else:
+            self.node_scores = pd.concat([
+                self.node_scores, 
+                pd.DataFrame(data)
+            ])
         
-        
+        print(self.node_scores)
+    
+    def get_node_score(self, tax_id, guide, score_name):
+        if (tax_id, guide, score_name) not in self.node_scores:
+            self.calculate_node_scores(guides=[guide])
+        return self.node_scores[(tax_id, guide, score_name)]
 
-    def calculate_node_scores_old(self,
-        root_tax_id=None
-    ):
-        '''Starting at some root node of a ETE3 NCBI tax tree, calculate the nodescore of every 
-        internal node.
+    def get_descendant_tax_ids_from_root_tax_id(self, tax_id=None, max_depth=None, max_nodes=None, include_level_zero=True):
+        '''Given some taxonomy ID, find the taxonomy IDs of descendant nodes
         
         Arguments:
+            root_tax_id (int): The root tax_id. Optional. default is config.ROOT_TAX_ID
+            
+        Returns:
+            A list of tax IDS
+            
+        '''
         
-        '''
-        if root_tax_id is None:
-            root_tax_id = config.ROOT_TAX_ID
-
-        ncbi = NCBITaxa()
-        tree = ncbi.get_topology([root_tax_id])
-
-        df_scores = self.assembly_scores_to_dataframe()
-
-        '''
-        The following DataFrame is structured as following:
-           |    | accession       |   tax_id |
-           |---:|:----------------|---------:|
-           |  0 | GCA_000859285.1 |    85708 |
-           |  1 | GCA_000886535.1 |    11676 |
-           |  2 | GCA_000884175.1 |  1645793 |
-        '''
-        df_accs_to_tax_id = pd.DataFrame(self.accession_to_tax_id.items(), columns=['accession', 'tax_id'])
+        tree = self._ncbi_tree
+        include_nodes = set()
+        depth_offset = 0
         
-        '''
-        The following DataFrame is structured as following:
-           |    | guide                   | accession       | score_name   | score | unique_sites | total_sites |  tax_id |
-           |---:|:------------------------|:----------------|:-------------|------:|-------------:|------------:|--------:|
-           |  0 | TACACTAATTCTTTCACACGTGG | GCA_000859285.1 | mit          |   100 |            0 |           0 |   85708 |
-           |  1 | TACACTAATTCTTTCACACGTGG | GCA_000886535.1 | mit          |   100 |            0 |           0 |   11676 |
-           |  2 | TACACTAATTCTTTCACACGTGG | GCA_000884175.1 | cfd          |   100 |            0 |           0 | 1645793 |
-        '''
-        df_scores = df_scores.merge(df_accs_to_tax_id, on='accession', how='left')
-
-        data = {'tax_id': [], 'score_name' : [], 'guide' : [], 'score' : []}
-
-        tree_nodes = list(tree.traverse(strategy="levelorder"))
-        number_leaves = len(tree_nodes)
+        found_tax_id_in_tree = False
+        if tax_id is not None:
+            include_nodes.update([tax_id])
+            
+            # a tax_id has been specified, first find it
+            for idx, i in enumerate(tree.traverse(strategy="levelorder")):
+                if int(i.name) == tax_id:
+                    found_tax_id_in_tree = True
+                    print(f'updating root of tree from {tree.name} to {i.name}')
+                    tree = i
+                    depth_offset = len(i.get_ancestors()) - 1
+                    break
         
-        score_names = ['mit'] #set(df_scores['score_name']):
-        guides = set(df_scores['guide'])
-        
+            if not      found_tax_id_in_tree:
+                print(f'Could not find tax_id {tax_id} in the tree')
+                return [tax_id]
+            
         for idx, i in enumerate(tree.traverse(strategy="levelorder")):
-            tax_id = int(i.name)
+            depth = len(i.get_ancestors()) - 1 - depth_offset
+
+            doBreak = False
+            doBreak |= (max_nodes is not None and len(include_nodes) > max_nodes)
+            doBreak |= (max_depth is not None and depth > max_depth)
+            
+            if doBreak:
+                break
+
+            doAdd = i.up is not None
+            doAdd &= (
+                (include_level_zero and depth >= 0) or
+                (not include_level_zero and depth > 0)
+            )
+            if doAdd:
+                #print(f'depth is {depth}')
+                include_nodes.update([
+                    int(node.name) 
+                    for node in i.up.children
+                ])
+            
+        return list(include_nodes)
+
+    def generate_newick_string_from_tax_ids(self, tax_ids):
+        '''This function generates Newick string of the data needed to visualise the
+        phylogenetic tree in a web browser. See https://en.wikipedia.org/wiki/Newick_format
         
-            for score_name in score_names:
-                
-                for guide in guides:
-                
-                    species = map(int, i.get_leaf_names())
+        Arguments:
+            tax_ids (list):  The taxonomy IDs to include in the tree
             
-                    df_node = df_scores[df_scores['tax_id'].isin(species)]
-                    df_node = df_node[df_scores['score_name'] == score_name]
-                    df_node = df_node[df_scores['guide'] == guide]
-            
-                    if len(df_node) > 0:
-                        score = 10000.0 / (100.0 + df_node['score'].sum())
-                    else:
-                        score = -1
-                    
-                    
-                    data['score_name'].append(score_name)
-                    data['tax_id'].append(tax_id)
-                    data['guide'].append(guide)
-                    data['score'].append(score)
-            
-            print(f'{idx: >6} / {number_leaves}: {tax_id: >6}')
-            
-        return pd.DataFrame(data)
+        Returns:
+            A Newick string
+        '''
+        
+        return write_newick(
+            self._ncbi.get_topology(
+                tax_ids
+            )
+        )
 
     def to_pickle(self, filename):
+        # Some parts of the Collection cannot be Pickled.
+        # They will be removed then regenerated when Unpickled.
+        
+        self._ncbi_tree_newick = write_newick(self._ncbi_tree)
+        
+        del self._ncbi
+        del self._ncbi_tree
+    
         with open(filename, 'wb') as fp:
             pickle.dump(self.__dict__, fp)
     
@@ -382,6 +433,19 @@ def collection_from_pickle(filename):
     collection = ViralCutCollection()
     with open(filename, 'rb') as fp:
         collection.__dict__ = pickle.load(fp)
+    
+    # Recreate parts of the Collection that would not have been Pickled
+    collection._ncbi = NCBITaxa()
+    
+    try:
+        collection._ncbi_tree = read_newick(collection._ncbi_tree_newick)
+        raise RuntimeError('test')
+    except Exception as e:
+        collection._ncbi_tree = collection._ncbi.get_topology(
+            collection.get_tax_ids_in_analysis(),
+            intermediate_nodes=True
+        )
+    
     return collection
 
 def parse_fna(stream):

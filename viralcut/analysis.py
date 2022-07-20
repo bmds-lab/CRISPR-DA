@@ -118,7 +118,7 @@ def generate_df_of_species_data_from_tax_ids(tax_ids):
     
     ncbi = NCBITaxa()
     tree = ncbi.get_topology(tax_ids)
-    
+    #print(tree)
     tax2name, tax2track, tax2rank = ncbi.annotate_tree(tree)
 
     df = pd.DataFrame([tax2name, tax2track, tax2rank]).T
@@ -153,42 +153,6 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
                     print(f'Could not find taxId of {accs}')
     
     return tax_ids if not uniq else list(set(tax_ids))
-
-def get_descendant_tax_ids_from_root_tax_id(tax_id, max_depth=None, max_nodes=None):
-    '''Given some taxonomy ID, find the taxonomy IDs of descendant nodes
-    
-    Arguments:
-        root_tax_id (int): The root tax_id. Optional. default is config.ROOT_TAX_ID
-        
-    Returns:
-        A list of tax IDS
-        
-    '''
-    
-    ncbi = NCBITaxa() 
-    tree = ncbi.get_topology(
-        [tax_id],
-        intermediate_nodes=True
-    )
-    
-    include_nodes = set()
-    for idx, i in enumerate(tree.traverse(strategy="levelorder")):
-        depth = len(i.get_ancestors()) - 1
-
-        
-        doBreak = False
-        doBreak |= (max_nodes is not None and len(include_nodes) > max_nodes)
-        doBreak |= (max_depth is not None and depth > max_depth)
-        
-        if doBreak:
-            break
-
-        include_nodes.update([
-            int(node.name) 
-            for node in i.up.children
-        ])
-        
-    return list(include_nodes)
     
     #if root_tax_id is None:
     #    root_tax_id = config.ROOT_TAX_ID
@@ -251,7 +215,7 @@ def get_tax_ranks_in_order(root_node=10239):
     
     print(tax2rank)
     return tax2depth, tax2rank
-  
+
 def generate_newick_string_from_tax_ids(tax_ids):
     '''This function generates Newick string of the data needed to visualise the
     phylogenetic tree in a web browser. See https://en.wikipedia.org/wiki/Newick_format
