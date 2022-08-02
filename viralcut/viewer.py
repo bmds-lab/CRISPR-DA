@@ -122,17 +122,19 @@ def guides():
     output.headers["Content-type"] = "text/csv"
     return output
 
-@app.route("/subtree/<int:root_tax_id>")
-def subtree(root_tax_id):
+@app.route("/subtree/<int:root_tax_id>/<guide>/<score>")
+def subtree(root_tax_id, guide, score):
     returns = {
         'root_tax_id' : root_tax_id,
         'newick' : None,
-        'annotations' : None
+        'annotations' : None,
+        'scores' : {},
+        'leaves_with_children' : {}
     }
     
     tax_ids = VC_COLLECTION.get_descendant_tax_ids_from_root_tax_id(
         tax_id=root_tax_id, 
-        max_depth=4, 
+        max_depth=2, 
         max_nodes=MAX_TAX_IDS,
         include_level_zero=False,
     )
@@ -143,6 +145,26 @@ def subtree(root_tax_id):
     # generate annotation info
     returns['annotations'] = analysis.generate_df_of_species_data_from_tax_ids(tax_ids).to_dict()
     
+    # which leaves can be expanded further?
+    
+    
+    # scores
+    import random
+    
+    VC_COLLECTION.calculate_node_scores(
+        guides=[guide],
+        root_tax_id=root_tax_id
+    )
+    
+    print('getting node scores')
+    for tax_id in tax_ids:
+        try:
+            returns['scores'][tax_id] = VC_COLLECTION.get_node_score(tax_id, guide, score)
+            #returns['scores'][tax_id] = random.random() * 100 #VC_COLLECTION.get_node_score(tax_id, guide, 'mit')
+        except Exception as e:
+            raise e
+            returns['scores'][tax_id] = 0
+            
     return returns
 
 def run(
@@ -152,6 +174,8 @@ def run(
 ):
     global VC_COLLECTION
     VC_COLLECTION = collection_from_pickle(path_to_pickled_viralcut_collection)
+    VC_COLLECTION.node_scores_calculated_for_guides = []
+    VC_COLLECTION.node_scores = {}
     app.run(host=host, port=port, debug=True)
 
 if __name__ == '__main__':

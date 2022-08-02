@@ -87,6 +87,7 @@ body {
     cursor: pointer;
 }
  .link {
+    stroke-width: 2;
 }
  .link_bold {
     font-weight: bold;

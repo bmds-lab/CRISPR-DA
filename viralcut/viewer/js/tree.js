@@ -2,12 +2,13 @@ import {csv, text} from "https://cdn.skypack.dev/d3-fetch@3";
 import * as d3f from "https://cdn.skypack.dev/d3-fetch@3";
 
 var fp_scores = "scores"; //"test.scores.csv"
-var fp_species = "species"; //"test.species.csv" // "Euk.tree.annotations2.csv"
-var fp_subspecies = "subspecies"; //"test.species.csv" // "Euk.tree.annotations2.csv"
-var fp_newick = "newick"; //"test.newick.txt"
-var fp_subnewick = "subnewick"; //"test.newick.txt"
 var fp_subtree = "subtree"; //"test.newick.txt"
 var fp_guides = "guides";
+
+//var fp_species = "species"; //"test.species.csv" // "Euk.tree.annotations2.csv"
+//var fp_subspecies = "subspecies"; //"test.species.csv" // "Euk.tree.annotations2.csv"
+//var fp_newick = "newick"; //"test.newick.txt"
+//var fp_subnewick = "subnewick"; //"test.newick.txt"
 
 var start_tax_id = 11118; //10239;
 
@@ -16,24 +17,17 @@ var x_scale = 1;
 var duration = 500;
 var font_size = 14;
 
-var lca; // last common ancenstor
+//var annotations = null;
+//var scores = null;
 
-var annotations = null;
-var scores = null;
 var root = null;
-
 var tree = null;
 var svg = null;
 var vis = null;
-
 var count_nodes = 0;
 
 async function emptyAndUpdateDataAndVis(root_tax_id=start_tax_id) {
     var guide_seq = document.getElementById('selGuide').value;
-
-    //var newick_str = await d3f.text(fp_newick + "/" + root_tax_id);
-    //annotations = await d3f.csv(fp_species + "/" + root_tax_id);
-    scores = await d3f.csv(fp_scores + "/" + root_tax_id + "/" + guide_seq);
 
     // clear the SVG
     tree = d3.layout.cluster().size([1920, 1080]);
@@ -41,14 +35,12 @@ async function emptyAndUpdateDataAndVis(root_tax_id=start_tax_id) {
     if (g.size()) {
         svg.select('g').remove();
     }
-    vis = svg.append("g");
-       //.attr("transform", "translate(50, 50)");
     
+    vis = svg.append("g");
+
     var subtree = await getAnnotatedSubTree(root_tax_id);
     root = subtree;
-    
-    //traverseAndAnnotate(root);
-    //getTotalLength(root);
+
     redrawTree();
 }
 
@@ -88,18 +80,8 @@ function parseNewick(a) {
     return r
 }
 
-function findScore(node) {
-    var number = node.name;
-    scores.forEach(function(d) {
-        if (+d.tax_id == +number) { // + converts to numerical representation
-            node.score = d.score;
-        }
-    });
-};
-
 
 function getTotalLength(node) {
-    //console.log(node);
     if (typeof node.branchset != "undefined") {
         node.branchset.forEach(function(d) {
             d.totalLength = d.length + node.totalLength;
@@ -112,14 +94,14 @@ function adjustLength(n, offset) {
     //console.log(n);
     y_scale = 200 / Math.log(12 - document.getElementById("rangeHorizontalScale").value);
     x_scale = 0.1 / Math.log(52 - document.getElementById("rangeVerticalScale").value);
-    
+
     if (n.length != null) {
         offset += n.length * y_scale;
     }
-    
+
     n.y = offset;
     n.x = n.x * (font_size * x_scale);
-    
+
     if (n.children) {
         n.children.forEach(function(n) {
             adjustLength(n, offset);
@@ -128,44 +110,52 @@ function adjustLength(n, offset) {
 }
 
 function rightAngleDiagonal(d, i) {
+    //return "M" + d.target.y + "," + d.target.x
+    //            + "C" + (d.source.y + 50) + "," + d.target.x
+    //            + " " + (d.source.y + 150) + "," + d.source.x // 50 and 150 are coordinates of inflexion, play with it to change links shape
+    //            + " " + d.source.y + "," + d.source.x;
+    //          
+    //          
     //return "M" + d.source.y + "," + d.source.x
     //            + "C" + (d.source.y) + " " + d.source.x
     //            + "," + (d.source.y+10) + " " + (d.source.x+10)
     //            // 50 and 150 are coordinates of inflexion, play with it to change links shape
     //            + ", " + d.target.y + " " + d.target.x;
-    
+
     return "M" + d.source.y + "," + d.source.x +
         "V" + d.target.x + "H" + d.target.y;
 }
 
 async function getAnnotatedSubTree(root_tax_id) {
     var subtree = null;
-    await d3f.json(fp_subtree + "/" + root_tax_id)
+    var guide_seq = document.getElementById('selGuide').value;
+    var score_name = document.getElementById('selScore').value;
+    await d3f.json(fp_subtree + "/" + root_tax_id + "/" + guide_seq + "/" + score_name)
         .then(function(json) {
-            
+
             // parse the subtree newick string
             var newick = json['newick'];
             subtree = parseNewick(newick);
-            
-            // add the annotations
+
+            // add the annotations and scores
             var annots = json['annotations']['commonName'];
+            var scores = json['scores']
             var queue = [];
             queue.push(subtree);
             while (queue.length > 0) {
                 var node = queue.shift(); // this is O(n)
-                
+
                 node.species = annots[node.name]; //d.organismName;
                 node.commonName = annots[node.name]; //d.commonName;
                 node.taxonomy = annots[node.name]; //d.taxonomy;
                 node.taxonomyStr = annots[node.name]; //d.taxonomy;
-                
-                //findScore(node);
-                
+                node.score = scores[node.name]
+
                 if (typeof node.branchset != "undefined") {
                     node.branchset.forEach(function (node_child) {
                        node_child.parent = node;
                        node.children = node.branchset;
-                       queue.push(node_child); 
+                       queue.push(node_child);
                     });
                 }
             }
@@ -175,45 +165,33 @@ async function getAnnotatedSubTree(root_tax_id) {
             console.log('something went wrong: ');
             console.log(error);
         });
-    
+
     return subtree;
 }
 
 function doClick(node_clicked) {
     // collapse subtree
     if (node_clicked.children) {
-        console.log('collapse node with children');
         // remove children so the subtree collapses.
         // children are retained in `.branchset`.
         node_clicked.children = null;
         redrawTree(node_clicked);
-        
+
     } else {
-        console.log('node has no children expanded');
-        console.log(node_clicked);
         if (node_clicked.branchset) {
-            console.log('node has a branch to expand');
             // the subtree will expand if `.branchset` contains the children
             node_clicked.children = node_clicked.branchset;
             redrawTree(node_clicked);
+
         } else {
-            console.log('asking the server for a branch to expand');
             // `.branchset` was empty. Request the subtree, if it exists.
-            
-            console.log('clicked on ' + node_clicked.name + ' :');
-            console.log(node_clicked);
             var subtree = getAnnotatedSubTree(node_clicked.name)
                 .then(function(st) {
-                    console.log('subtree: ');
-                    console.log(st);
                     st.parent = node_clicked;
                     node_clicked.children = st.children;
                     node_clicked.branchset = st.children;
-                    console.log(node_clicked);
                     redrawTree(st);
-                });            
-            
-
+                });
         }
     }
     //redrawTree(node_clicked);
@@ -225,18 +203,17 @@ function name(node) {
 
 function getLinkColour(score) {
     // https://gist.github.com/mlocati/7210513
+
+    //return '#ccc';
     
-    //console.log(score);
-    
-    return '#ccc';
-    if (typeof score == "undefined") {
-        return '#000';
+
+    if (score == -1 || typeof score == "undefined") {
+        return '#ccc';
     }
-    
-    if (score == 0) {
-        return '#0000FF';
-    }
-    
+    //if (score == 0) {
+    //    return '#0000FF';
+    //}
+
     var perc = score;
     var r, g, b = 0;
     if(perc < 50) {
@@ -252,15 +229,13 @@ function getLinkColour(score) {
 }
 
 function redrawTree(source) {
-    console.log(root);
     var nodes = tree.nodes(root);
-    console.log(nodes);
     var links = tree.links(nodes);
-    console.log(links);
+
     adjustLength(nodes[0], 0);
 
     vis.selectAll(".link")
-        .data(links, function(d) { 
+        .data(links, function(d) {
             //console.log(d);
             return d.target.id;
         })
@@ -270,7 +245,7 @@ function redrawTree(source) {
         .attr("fill", "none")
         .attr("stroke", "#ccc")
         .attr("d", rightAngleDiagonal);
-        
+
 
     var node = vis.selectAll("g.node")
         .data(nodes, function(d, i) {
@@ -301,20 +276,6 @@ function redrawTree(source) {
 
     nodeEnter.append("text")
         .attr("dx", 8)
-        .attr("dy", function(d) {
-            if (d.children) {
-                return -5;
-            } else {
-                return font_size/3;
-            }
-        })
-        .attr('transform', function(d) {
-            if (d.children) {
-                return 'rotate(-6, 0, 0)';
-            } else {
-                return '';
-            }
-        })
         .style("font-size", font_size + "px")
         .text(function(d) {
             return name(d)
@@ -325,7 +286,7 @@ function redrawTree(source) {
             d3.select("#taxonomy").text(d.name);
             d3.select("#depth").text(d.depth);
         });
-     
+
     // when nodes are updated/moved/etc.
     var nodeUpdate = node.transition()
         .duration(duration)
@@ -336,12 +297,26 @@ function redrawTree(source) {
         .attr("display", "inline");
 
     nodeUpdate.select("text")
-        .style("font-size", function (d) { 
-            if (d.children) { 
+        .style("font-size", function (d) {
+            if (d.children) {
                 return (font_size-2) + "px";
             } else {
                 return font_size + "px";
-            } 
+            }
+        })
+        .attr('transform', function(d) {
+            if (d.children) {
+                return 'rotate(-6, 0, 0)';
+            } else {
+                return 'rotate(0, 0, 0)';
+            }
+        })
+        .attr("dy", function(d) {
+            if (d.children) {
+                return -5;
+            } else {
+                return font_size/3;
+            }
         });
 
     // when nodes are collapsed
@@ -391,19 +366,19 @@ function redrawTree(source) {
                 target: o
             });
         });
-        
+
     // Stash the old positions for transition.
     nodes.forEach(function(d) {
         d.x0 = d.x;
         d.y0 = d.y;
     });
 
-    link.forEach(function (d) { 
+    link.forEach(function (d) {
         d.forEach(function (e) {
-            e.style.stroke = getLinkColour(e.__data__.source.score); 
+            e.style.stroke = getLinkColour(e.__data__.target.score);
         });
     });
-    
+
 };
 
 function zoom() {
@@ -416,7 +391,7 @@ d3.select("#btnUpdate").on("click", function(t) {
     var e = document.getElementById("txtRootTaxId");
     var root_tax_id = e.options[e.selectedIndex].text;
     var root_tax_id = e.options[e.selectedIndex].value;
-    
+
     emptyAndUpdateDataAndVis(root_tax_id);
 });
 
@@ -437,7 +412,7 @@ svg = d3.select("#panelTree")
     .attr("width", '100%')
     .attr("height", '100%')
     .call(zoomListener);
-    
+
 populateGuidesSelect()
     .then(emptyAndUpdateDataAndVis);
     //.then(redrawTree);
@@ -464,7 +439,7 @@ function collapseNthSubtree(root_node, n) {
         } else {
             root_node.children = root_node.branchset;
         }
-    }    
+    }
     redrawTree(root_node);
 }
 
@@ -504,7 +479,7 @@ function traverseAndAnnotate(root_node) {
         if (typeof node.branchset != "undefined") {
             node.branchset.forEach(function (d) {
                node.children = node.branchset;
-               queue.push(d); 
+               queue.push(d);
             });
         }
     }
@@ -524,12 +499,12 @@ function bolded(is_mousedover) {
 
 
 
-            
+
             //// get annotations
             //d3f.csv(fp_subspecies + "/" + d.name)
             //    .then(function (csv) {
             //        csv.forEach(function (row) {
-            //            annotations.push(row);                        
+            //            annotations.push(row);
             //        });
             //    })
             //    .catch(function(error) {
@@ -545,14 +520,14 @@ function bolded(is_mousedover) {
             //        var subtree = parseNewick(newick);
             //        traverseAndAnnotate(subtree);
             //        getTotalLength(subtree);
-            //        
+            //
             //        //d.branchset = subtree.children;
             //        //d.children = d.branchset;
-            //        
+            //
             //        console.log(d);
             //        console.log(d.parent);
             //        console.log(subtree);
-            //        
+            //
             //        //d.parent = subtree;
             //        d.children = subtree.children;
             //        redrawTree(d);
@@ -561,12 +536,12 @@ function bolded(is_mousedover) {
             //        console.log('something went wrong: ');
             //        console.log(error);
             //    });
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
     .attr("y", function(d) {
             if (d.children) {
                 console.log('adjusting y of label', d.y, d.y-10);
@@ -575,4 +550,13 @@ function bolded(is_mousedover) {
                 return d.y
             }
         });
+
+function findScore(node) {
+    var number = node.name;
+    scores.forEach(function(d) {
+        if (+d.tax_id == +number) { // + converts to numerical representation
+            node.score = d.score;
+        }
+    });
+};
 */

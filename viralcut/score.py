@@ -195,6 +195,9 @@ def run_analysis(gene_id, accessions=None):
                 total
             )
 
+    # Calculate node scores
+    #collection.calculate_node_scores()
+
     if config.VERBOSE:
         print('Done.')
     
