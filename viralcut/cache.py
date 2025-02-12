@@ -161,6 +161,24 @@ def get_missing_issl_index(accessions: list[str]):
             missing_indexes.append(accession)
     return missing_indexes
 
+def get_assembly_fna(accession: str):
+    '''
+    This function will get the associated FNA file for the given accession
+    
+    Arguments:
+        accession : A NCBI assembly accession
+
+    Returns:
+        The path of the FNA file for the provide accession
+    '''
+    cache = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession
+    if len(cache.glob('*.fna')) > 1:
+            raise RuntimeError((
+                f'Found {len(cache.glob('*.issl'))} FNA files for {accession}. '
+                f'There should be one.'
+            ))
+    return cache.glob('*.fna')[0]
+
 def get_accessions_from_ncbi_table_export(
     filePath=config.NCBI_HUMAN_VIRUSES_TABLE,
     **kwargs
