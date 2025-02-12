@@ -21,7 +21,7 @@ except KeyError as _:
         # Use .netrc file by setting auth to none
     except netrc.NetrcParseError as e:
         print(e)
-        print('Please fix .netrc file before continuing')
+        print('WARNING: Please fix .netrc file before continuing')
         exit(-2)
     except FileNotFoundError as _:
         print("WARNING: No '.netrc' file and 'NCBI_API_KEY' environment variable was found.")
