@@ -144,7 +144,7 @@ def get_assembly_cache(accession, mkdir=True):
     return path
 
 
-def get_missing_issl_index(accessions: str):
+def get_missing_issl_index(accessions: list[str]):
     '''
     This function will check if the provided accessions have an ISSL index in the cache
     
