@@ -1,28 +1,18 @@
-import csv
 import json
 import os
-import subprocess
-import multiprocessing
-import math
 import time
-import zipfile as zf
-from glob import glob
-from collections import deque, defaultdict
-from io import BytesIO, TextIOWrapper
-
-try:
-   import cPickle as pickle
-except:
-   import pickle
-
-from . import config
-from . import dataset
-
+import pickle
+from collections import defaultdict
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 from ete3.parser.newick import read_newick, write_newick
 import pandas as pd
-import tqdm
 
+from . import config
+
+CODE_ACCEPTED = 1
+CODE_REJECTED = 0
+CODE_UNKNOWN = '?'
+CODE_ERROR = '!'
 
 class ViralCutCollection:
     def __init__(self, _loading_from_pickled=False):
