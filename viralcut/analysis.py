@@ -146,8 +146,8 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
         if os.path.exists(fpReport):
             with open(fpReport, 'r') as fp:
                 report = json.loads(fp.readline())
-            if 'taxId' in report:
-                tax_ids.append(report['taxId'])
+            if 'taxId' in report['organism']:
+                tax_ids.append(report['organism']['taxId'])
             else:
                 if config.VERBOSE:
                     print(f'Could not find taxId of {accs}')
@@ -193,7 +193,8 @@ def get_tax_ranks_in_order(root_node=10239):
     
     ncbi = NCBITaxa()
     
-    tax_ids = get_descendant_tax_ids_from_root_tax_id(tax_id=root_node)
+    # tax_ids = get_descendant_tax_ids_from_root_tax_id(tax_id=root_node)
+
 
     tree = ncbi.get_topology(tax_ids)
 
