@@ -129,7 +129,7 @@ class ViralCutCollection:
         Returns:
             None
         '''
-        self._ncbi_tree = self._ncbi.get_topology(tax_ids)
+        self._ncbi_tree = self._ncbi.get_topology(tax_ids, intermediate_nodes=False)
 
 
     def get_tax_ids_in_analysis(self):
