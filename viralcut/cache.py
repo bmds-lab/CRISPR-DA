@@ -4,6 +4,26 @@ import shutil
 from pathlib import Path
 from . import config
 
+def parse_fna(stream):
+    '''Parse some iterable object as a multi-FASTA file.
+    Yield after reading each FASTA block.
+
+    Arguments:
+        stream (iterable):  An iterable object to read
+    '''
+    header = None
+    seqs = []
+    for line in stream:
+        line = line.strip()
+
+        if line[0] == '>':
+            if header is not None:
+                yield header, ''.join(seqs)
+            header = line
+        else:
+            seqs.append(line)
+    yield header, ''.join(seqs)
+
 def get_missing_genes(gene_ids):
     '''
     This function will check if the provided gene ids exist in the cache.
@@ -35,30 +55,22 @@ def add_gene(gene_id):
     cache.mkdir()
 
 
-def get_gene_seq(gene_ids):
-    '''A generator method that provides the sequence of the requested genes.
+def get_gene_seq(gene_id):
+    '''
+    This function will get the gene seqeuence from the cache.
 
     Arguments:
-        gene_ids (list):         A list of gene IDs to use in the generator
-        download_missing (bool): If a gene hasn't been cached, download it.
+        gene_id :   The gene ID to retrieve from the cache 
 
+    Returns:
+        Seqeunces : A list of sequences from the gene fna file
     '''
-
-    if download_missing:
-        to_download = []
-
-        for gene_id in gene_ids:
-            if not os.path.exists(get_gene_cache(gene_id)):
-                to_download.append(gene_id)
-
-        download_ncbi_genes(to_download)
-
-    for gene_id in gene_ids:
-        fna_fp = os.path.join(get_gene_cache(gene_id), f"{gene_id}.fna")
-
-        with open(fna_fp, 'r') as fp:
-            for header, seq in parse_fna(fp):
-                yield gene_id, seq
+    gene_fna = Path(config.CACHE) / f"gene-{gene_id}" / f"{gene_id}.fna"
+    seqs = []
+    with open(gene_fna, 'r') as inFile: 
+        for header, seq in parse_fna(inFile):
+            seqs.append(seq)
+    return seqs
 
 
 def get_missing_assemblies(accessions):
