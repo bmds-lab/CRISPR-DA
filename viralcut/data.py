@@ -415,7 +415,7 @@ def create_issl_indexes(accessions,
     else:
         with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
             success = p.starmap(_create_issl_index, [[x] for x in args])
-            errors = [accessions[idx] for idx, result in enumerate(success) if not result]:
+            errors = [accessions[idx] for idx, result in enumerate(success) if not result]
     return errors
 
 
