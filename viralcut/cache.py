@@ -1,9 +1,10 @@
 
 import os
+import shutil
 from pathlib import Path
 from . import config
 
-def get_genes_not_in_cache(gene_ids):
+def get_missing_genes(gene_ids):
     '''
     This function will check if the provided gene ids exist in the cache.
     
@@ -20,6 +21,76 @@ def get_genes_not_in_cache(gene_ids):
             missing_genes.append(gene_id)
     return missing_genes
 
+def add_gene(gene_id):
+    '''
+    This function creates a new directory in the cache.
+    It WILL remove the existing entry.
+    
+    Arguments:
+        gene_id (int): NCBI gene IDs as integers
+    '''
+    cache = Path(config.CACHE) / f"gene-{gene_id}"
+    if cache.exists():
+        shutil.rmtree(cache)
+    cache.mkdir()
+
+
+def get_gene_seq(gene_ids):
+    '''A generator method that provides the sequence of the requested genes.
+
+    Arguments:
+        gene_ids (list):         A list of gene IDs to use in the generator
+        download_missing (bool): If a gene hasn't been cached, download it.
+
+    '''
+
+    if download_missing:
+        to_download = []
+
+        for gene_id in gene_ids:
+            if not os.path.exists(get_gene_cache(gene_id)):
+                to_download.append(gene_id)
+
+        download_ncbi_genes(to_download)
+
+    for gene_id in gene_ids:
+        fna_fp = os.path.join(get_gene_cache(gene_id), f"{gene_id}.fna")
+
+        with open(fna_fp, 'r') as fp:
+            for header, seq in parse_fna(fp):
+                yield gene_id, seq
+
+
+def get_missing_assemblies(accessions):
+    '''
+    This function will check if the provided accessions exist in the cache.
+    
+    Arguments:
+        accessions (list): List of NCBI assembly accessions
+
+    Returns:
+        A list of accessions NOT downloaded in the cache.
+    '''
+    cache = Path(config.CACHE)
+    missing_accessions = []
+    for accession in accessions:
+        if not (cache / accession[:config.CACHE_PREFIX_LENGTH] / accession).exists():
+            missing_accessions.append(accession)
+    return missing_accessions
+
+def add_assembly(accession):
+    '''
+    This function creates a new directory in the cache.
+    It WILL remove the existing entry.
+    
+    Arguments:
+        gene_id (int): NCBI gene IDs as integers
+    '''
+    cache = cache / accession[:config.CACHE_PREFIX_LENGTH] / accession
+    if cache.exists():
+        shutil.rmtree(cache)
+    cache.mkdir()
+
 def get_gene_cache(gene_id, mkdir=True):
     '''Generates a directory to store data for a particular gene.
     This function should be changed to your needs but keep in mind that changes
@@ -35,6 +106,25 @@ def get_gene_cache(gene_id, mkdir=True):
         The path to the directory where the NCBI data will be cached
     '''
     path = os.path.join(config.CACHE, f"gene-{gene_id}")
+    if mkdir:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+def get_assembly_cache(accession, mkdir=True):
+    '''Generates a directory to store data for a particular accession.
+    This function should be changed to your needs but keep in mind that changes
+    may break the logic structure of your filesystem.
+
+    Arguments:
+        accession (string): The NCBI accession used for creating the directory
+        mkdir (bool):       True, the directory is created.
+                            False, the directory is not created.
+                            Set to False if you just want to retrieve the path to the cache.
+
+    Returns:
+        The path to the directory where the NCBI data will be cached
+    '''
+    path = os.path.join(config.CACHE, accession[:config.CACHE_PREFIX_LENGTH], accession)
     if mkdir:
         os.makedirs(path, exist_ok=True)
     return path
