@@ -20,7 +20,7 @@ class ViralCutCollection:
         self.target = None
         self.accessions = []
         self.accession_to_tax_id = {}
-        self.gene_properties = {}
+        self.target_properties = {}
         self.node_scores_calculated_for_guides = []
         self.node_scores = {} # key: tuple(node, guide, score_name); value: score
         self._ncbi = NCBITaxa()
