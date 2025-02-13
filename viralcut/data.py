@@ -480,6 +480,7 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
             tax_ids.append(report['organism']['taxId'])
         elif config.VERBOSE:
             print(f'Could not find taxId of {accs}')
+    return tax_ids
 
 def get_guides_from_gene(gene_id):
     '''
