@@ -504,3 +504,26 @@ def get_guides_from_gene(gene_id):
                 guides.append((Guide(target23), m.start(), strand))
 
     return guides
+
+
+def get_guides_from_genome(accession):
+    '''
+    This method will extract all the guides from the gene
+    
+    '''
+    pattern_forward = r'(?=([ATCG]{21}GG))'
+    pattern_reverse = r'(?=(CC[ACGT]{21}))'
+
+    guides = []
+    seqs = cache.get_assembly_seq(accession)
+    for seq in seqs:
+        for pattern, strand, seqModifier in [
+            [pattern_forward, '+', lambda x : x],
+            [pattern_reverse, '-', lambda x : utils.rc(x)]
+        ]:
+            p = re.compile(pattern)
+            for m in p.finditer(seq):
+                target23 = seqModifier(seq[m.start() : m.start() + 23])
+                guides.append((Guide(target23), m.start(), strand))
+
+    return guides
