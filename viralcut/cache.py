@@ -152,6 +152,22 @@ def get_assembly_cache(accession, mkdir=True):
     return path
 
 
+def get_accession_issl_index(accession: str):
+    '''
+    This function will get the issl for the given accession
+    
+    Arguments:
+        accessions (list): List of NCBI assembly accessions
+
+    Returns:
+        A list of accessions that do NOT have an ISSL index built in the cache
+    '''
+
+    cache = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession
+    if len(cache.glob('*.issl')) == 0:
+        raise RuntimeError(f'Could not find index for {accession}')
+    return cache.glob('*.issl')[0]
+
 def get_missing_issl_index(accessions: list[str]):
     '''
     This function will check if the provided accessions have an ISSL index in the cache
