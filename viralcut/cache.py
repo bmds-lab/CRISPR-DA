@@ -5,26 +5,8 @@ import json
 import shutil
 from pathlib import Path
 from . import config
+from . import utils
 
-def parse_fna(stream):
-    '''Parse some iterable object as a multi-FASTA file.
-    Yield after reading each FASTA block.
-
-    Arguments:
-        stream (iterable):  An iterable object to read
-    '''
-    header = None
-    seqs = []
-    for line in stream:
-        line = line.strip()
-
-        if line[0] == '>':
-            if header is not None:
-                yield header, ''.join(seqs)
-            header = line
-        else:
-            seqs.append(line)
-    yield header, ''.join(seqs)
 
 def get_missing_genes(gene_ids):
     '''
@@ -70,7 +52,7 @@ def get_gene_seq(gene_id):
     gene_fna = Path(config.CACHE) / f"gene-{gene_id}" / f"{gene_id}.fna"
     seqs = []
     with open(gene_fna, 'r') as inFile: 
-        for header, seq in parse_fna(inFile):
+        for header, seq in utils.parse_fna(inFile):
             seqs.append(seq)
     return seqs
 
