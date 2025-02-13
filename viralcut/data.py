@@ -458,3 +458,24 @@ def get_accession_from_tax_id(tax_ids):
         print(missed_tax_ids)
 
     return accession
+
+def get_tax_ids_from_accessions(accessions, uniq=True):
+    '''Given a list of accessions, return a list of taxonomy IDs.
+    
+    Arguments:
+        accessions (list): A list of accessions
+        uniq (bool):        If true, a set of tax IDs will be returned. Else, 
+            duplicate tax IDs may be returned.
+    
+    Returns:
+        A list or set of tax IDs (see arg `uniq`).
+    '''
+    tax_ids = []
+    for accs in accessions:
+        report = cache.get_assembly_report(accs)
+        with open(report, 'r') as fp:
+            report = json.loads(fp.readline())
+        if 'taxId' in report['organism']:
+            tax_ids.append(report['organism']['taxId'])
+        elif config.VERBOSE:
+            print(f'Could not find taxId of {accs}')
