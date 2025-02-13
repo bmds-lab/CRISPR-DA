@@ -12,6 +12,8 @@ from . import dataset
 from . import cache
 from .collection import ViralCutCollection
 
+
+
 def collection_from_pickle(filename):
     if config.VERBOSE:
         print(f'Loading ViralCutCollection from: {filename}')
@@ -406,7 +408,7 @@ def create_issl_indexes(accessions,
             ])
         args.append(commands)
 
-    args, accessions = [arg, acc for arg, acc in zip(args, accessions) if len(arg) > 0]
+    args, accessions = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]
     errors = []
     if processors == 1:
         for idx, arg in enumerate(args):
