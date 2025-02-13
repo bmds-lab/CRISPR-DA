@@ -23,7 +23,7 @@ class ViralCutCollection:
         self.gene_properties = {}
         self.node_scores_calculated_for_guides = []
         self.node_scores = {} # key: tuple(node, guide, score_name); value: score
-        self._ncbi = None
+        self._ncbi = NCBITaxa()
         self._ncbi_tree = None
         self._ncbi_tree_newick = None
         self._pickle_filepath = None
