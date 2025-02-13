@@ -1,4 +1,22 @@
+def parse_fna(stream):
+    '''Parse some iterable object as a multi-FASTA file.
+    Yield after reading each FASTA block.
 
+    Arguments:
+        stream (iterable):  An iterable object to read
+    '''
+    header = None
+    seqs = []
+    for line in stream:
+        line = line.strip()
+
+        if line[0] == '>':
+            if header is not None:
+                yield header, ''.join(seqs)
+            header = line
+        else:
+            seqs.append(line)
+    yield header, ''.join(seqs)
 
 def rc(dna):
     complements = str.maketrans('acgtrymkbdhvACGTRYMKBDHV', 'tgcayrkmvhdbTGCAYRKMVHDB')
