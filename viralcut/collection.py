@@ -17,7 +17,7 @@ CODE_ERROR = '!'
 class ViralCutCollection:
     def __init__(self, _loading_from_pickled=False):
         self.guides = {}
-        self.gene_id = None
+        self.target = None
         self.accessions = []
         self.accession_to_tax_id = {}
         self.gene_properties = {}
@@ -27,13 +27,6 @@ class ViralCutCollection:
         self._ncbi_tree = None
         self._ncbi_tree_newick = None
         self._pickle_filepath = None
-
-        self._ncbi = NCBITaxa()
-        self._ncbi_tree = self._ncbi.get_topology(
-            [config.ROOT_TAX_ID],
-            intermediate_nodes=True
-        )
-        
         print('ViralCutCollection.__init__ finished')
 
     def __getitem__(self, key):
@@ -122,14 +115,20 @@ class ViralCutCollection:
         else:
             return key
 
-    def update_phylo_tree(self, tax_ids):
+    def update_phylogenetic_tree(self, tax_ids):
         ''' 
-        Updates the phylogentic tree to the smallest tree that connects all your query taxids
-
+        Updates the phylogenetic tree to the smallest tree that connects all your query taxids
         Returns:
             None
         '''
         self._ncbi_tree = self._ncbi.get_topology(tax_ids, intermediate_nodes=False)
+
+    def reset_phylogenetic_tree(self, root_tax_id):
+        '''
+        Resets the phylogenetic tree using the root tax id
+        '''
+        self._ncbi = NCBITaxa()
+        self._ncbi_tree = self._ncbi.get_topology(root_tax_id, intermediate_nodes=True)
 
 
     def get_tax_ids_in_analysis(self):
