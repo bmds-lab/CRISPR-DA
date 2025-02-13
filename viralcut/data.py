@@ -3,6 +3,7 @@ import pickle
 import os
 import subprocess
 import multiprocessing
+import re
 import zipfile as zf
 from glob import glob
 from io import BytesIO, TextIOWrapper
@@ -11,6 +12,8 @@ from . import config
 from . import dataset
 from . import cache
 from .collection import ViralCutCollection
+from .guide import Guide
+from . import utils
 
 
 
@@ -479,3 +482,25 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
             tax_ids.append(report['organism']['taxId'])
         elif config.VERBOSE:
             print(f'Could not find taxId of {accs}')
+
+def get_guides_from_gene(gene_id):
+    '''
+    This method will extract all the guides from the gene
+    
+    '''
+    pattern_forward = r'(?=([ATCG]{21}GG))'
+    pattern_reverse = r'(?=(CC[ACGT]{21}))'
+
+    guides = []
+    seqs = cache.get_gene_seq(gene_id)
+    for seq in seqs:
+        for pattern, strand, seqModifier in [
+            [pattern_forward, '+', lambda x : x],
+            [pattern_reverse, '-', lambda x : utils.rc(x)]
+        ]:
+            p = re.compile(pattern)
+            for m in p.finditer(seq):
+                target23 = seqModifier(seq[m.start() : m.start() + 23])
+                guides.append((Guide(target23), m.start(), strand))
+
+    return guides
