@@ -525,3 +525,41 @@ def get_guides_from_genome(accession):
                 guides.append((Guide(target23), m.start(), strand))
 
     return guides
+
+def create_collection_from_gene(gene_id, guides):
+    ''' this method will take a gene id and guides and create a new viral cut collection'''
+    collection = ViralCutCollection()
+    collection.target = ('gene', gene_id)
+    collection.target_properties = cache.get_gene_report(gene_id)
+    for guide, start, strand in guides:
+        if guide.seq not in collection:
+            collection[guide.seq] = guide
+            collection[guide.seq]['start'] = [start]
+            collection[guide.seq]['end'] = [start + 23]
+            collection[guide.seq]['strand'] = [strand]
+            collection[guide.seq]['occurrences'] = 1
+        else:
+            collection[guide.seq]['start'].append(start)
+            collection[guide.seq]['end'].append(start + 23)
+            collection[guide.seq]['strand'].append(strand)
+            collection[guide.seq]['occurrences'] += 1
+    return collection
+
+def create_collection_from_accession(accession, guides):
+    ''' this method will take a accession and guides and create a new viral cut collection'''
+    collection = ViralCutCollection()
+    collection.target = ('accession', accession)
+    collection.target_properties = cache.get_assembly_report(accession)
+    for guide, start, strand in guides:
+        if guide.seq not in collection:
+            collection[guide.seq] = guide
+            collection[guide.seq]['start'] = [start]
+            collection[guide.seq]['end'] = [start + 23]
+            collection[guide.seq]['strand'] = [strand]
+            collection[guide.seq]['occurrences'] = 1
+        else:
+            collection[guide.seq]['start'].append(start)
+            collection[guide.seq]['end'].append(start + 23)
+            collection[guide.seq]['strand'].append(strand)
+            collection[guide.seq]['occurrences'] += 1
+    return collection
