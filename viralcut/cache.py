@@ -92,7 +92,7 @@ def get_missing_assemblies(accessions):
             missing_accessions.append(accession)
     return missing_accessions
 
-def add_assembly(accession):
+def add_assembly(accession: str):
     '''
     This function creates a new directory in the cache.
     It WILL remove the existing entry.
@@ -100,10 +100,18 @@ def add_assembly(accession):
     Arguments:
         gene_id (int): NCBI gene IDs as integers
     '''
-    cache = cache / accession[:config.CACHE_PREFIX_LENGTH] / accession
+    cache = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession
     if cache.exists():
         shutil.rmtree(cache)
     cache.mkdir()
+
+def get_assembly_report(accession: str):
+    '''
+    Retrieves the data_report.json file for the given accesssion'''
+    report = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession / 'data_report.json'
+    if not report.exists():
+        raise RuntimeError(f'Could not find file {report} in cache')
+    return str(report)
 
 def get_gene_cache(gene_id, mkdir=True):
     '''Generates a directory to store data for a particular gene.
