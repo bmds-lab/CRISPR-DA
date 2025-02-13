@@ -49,13 +49,29 @@ def get_gene_seq(gene_id):
     Returns:
         Seqeunces : A list of sequences from the gene fna file
     '''
-    gene_fna = Path(config.CACHE) / f"gene-{gene_id}" / f"{gene_id}.fna"
+    fna = Path(config.CACHE) / f"gene-{gene_id}" / f"{gene_id}.fna"
     seqs = []
-    with open(gene_fna, 'r') as inFile: 
+    with open(fna, 'r') as inFile: 
         for header, seq in utils.parse_fna(inFile):
             seqs.append(seq)
     return seqs
 
+def get_assembly_seq(accession: str):
+    '''
+    This function will get the gene seqeuence from the cache.
+
+    Arguments:
+        gene_id :   The gene ID to retrieve from the cache 
+
+    Returns:
+        Seqeunces : A list of sequences from the gene fna file
+    '''
+    fna = get_assembly_fna(accession)
+    seqs = []
+    with open(fna, 'r') as inFile: 
+        for header, seq in utils.parse_fna(inFile):
+            seqs.append(seq)
+    return seqs
 
 def get_missing_assemblies(accessions):
     '''
