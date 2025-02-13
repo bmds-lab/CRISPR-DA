@@ -476,8 +476,6 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
     tax_ids = []
     for accs in accessions:
         report = cache.get_assembly_report(accs)
-        with open(report, 'r') as fp:
-            report = json.loads(fp.readline())
         if 'taxId' in report['organism']:
             tax_ids.append(report['organism']['taxId'])
         elif config.VERBOSE:
