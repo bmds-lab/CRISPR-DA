@@ -109,7 +109,19 @@ def get_assembly_report(accession: str):
     report = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession / 'data_report.json'
     if not report.exists():
         raise RuntimeError(f'Could not find file {report} in cache')
-    return str(report)
+    with open(report, 'r') as fp:
+        data = json.load(fp)
+    return data
+
+def get_gene_report(gene_id: str):
+    '''
+    Retrieves the data_report.json file for the given accesssion'''
+    report = Path(config.CACHE) / f'gene-{gene_id}' /'data_report.json'
+    if not report.exists():
+        raise RuntimeError(f'Could not find file {report} in cache')
+    with open(report, 'r') as fp:
+        data = json.load(fp)
+    return data
 
 def get_gene_cache(gene_id, mkdir=True):
     '''Generates a directory to store data for a particular gene.
@@ -239,27 +251,6 @@ def get_accessions_from_ncbi_table_export(
             accessions.append(row[idx_assembly])
 
     return accessions
-
-def get_cached_gene_information_by_id(gene_id):
-    '''Given some gene identifier, collect as properties about the gene.
-    Raises an exception if the gene does not exist in the cache.
-
-    Arguments:
-        gene_id (int):  The NCBI gene identifier
-
-    Returns:
-        A dictionary of properties
-    '''
-    dir = get_gene_cache(gene_id, mkdir=False)
-    report_path = os.path.join(dir, 'data_report.json')
-    if os.path.exists(report_path):
-        with open(report_path, 'r') as fp:
-            return json.loads(fp.readline())
-
-    if config.VERBOSE:
-        print(f'Could not find data report for gene #{gene_id}')
-
-    return {}
 
 def get_cached_tax_ids():
     '''This function crawls the assemblies cache to extract taxonomy IDs
