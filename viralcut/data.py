@@ -500,8 +500,9 @@ def get_guides_from_gene(gene_id):
         ]:
             p = re.compile(pattern)
             for m in p.finditer(seq):
-                target23 = seqModifier(seq[m.start() : m.start() + 23])
-                guides.append((Guide(target23), m.start(), strand))
+                target30 = seqModifier(seq[m.start() - 4 : m.start() + 23 + 3])
+                target23 = target30[4:-3]
+                guides.append((Guide(target23), target30, m.start(), strand))
 
     return guides
 
@@ -523,8 +524,9 @@ def get_guides_from_genome(accession):
         ]:
             p = re.compile(pattern)
             for m in p.finditer(seq):
-                target23 = seqModifier(seq[m.start() : m.start() + 23])
-                guides.append((Guide(target23), m.start(), strand))
+                target30 = seqModifier(seq[m.start() - 4 : m.start() + 23 + 3])
+                target23 = target30[4:-3]
+                guides.append((Guide(target23), target30, m.start(), strand))
 
     return guides
 
@@ -552,16 +554,18 @@ def create_collection_from_accession(accession, guides):
     collection = ViralCutCollection()
     collection.target = ('accession', accession)
     collection.target_properties = cache.get_assembly_report(accession)
-    for guide, start, strand in guides:
+    for guide, target30, start, strand in guides:
         if guide.seq not in collection:
             collection[guide.seq] = guide
             collection[guide.seq]['start'] = [start]
             collection[guide.seq]['end'] = [start + 23]
             collection[guide.seq]['strand'] = [strand]
+            collection[guide.seq]['30mr'] = [target30]
             collection[guide.seq]['occurrences'] = 1
         else:
             collection[guide.seq]['start'].append(start)
             collection[guide.seq]['end'].append(start + 23)
             collection[guide.seq]['strand'].append(strand)
+            collection[guide.seq]['30mr'].append(target30)
             collection[guide.seq]['occurrences'] += 1
     return collection
