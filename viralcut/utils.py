@@ -28,3 +28,22 @@ def trans_to_dna(rna: str):
     switch_UT = str.maketrans('U', 'T')
     dna = rna.translate(switch_UT)
     return dna
+
+def one_hot_encode(seq, z='ATCG'):
+    return [list(map(lambda x: 1 if x==c else 0, z)) for c in seq]
+
+assert(one_hot_encode('ATCG') == [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
+
+def one_hot_decode(onehot):
+    d = {
+        0 : "A",
+        1 : "T",
+        2 : "C",
+        3 : "G"
+    }
+    seq = ""
+    for encoding in onehot:
+        seq += d[encoding.index(1)]
+    return seq
+
+assert(one_hot_decode([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]]) == 'ATCG')
