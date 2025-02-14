@@ -16,6 +16,7 @@ Notes
 __all__ = ['run_analysis']
 
 import os
+import shutil
 import subprocess
 import multiprocessing
 
@@ -25,14 +26,13 @@ from tempfile import NamedTemporaryFile
 
 
 from . import config
-from . import analysis
-from .design import process_gene_by_id, run_mini_crackling
+from .design import run_mini_crackling
 from .data import *
-
+from . import cache
 
 def _run_issl_score(accession, path_guides, path_stdout):
     # assume the index exists and there is only one.
-    issl_idx = glob(os.path.join(get_assembly_cache(accession), "*.issl"))[0]
+    issl_idx = cache.get_accession_issl_index(accession)
     with open(path_stdout, 'w') as fp:
         subprocess.run([
             config.BIN_ISSL_SCORE,
@@ -65,27 +65,27 @@ def run_offtarget_scoring(guides, accessions, processors=0):
         for guide in guides:
             fp.write(f"{guide[:20]}\n")
 
+    # guides_file = '/mnt/ssd1/carl/ViralCut/examples/genomes-viruses/data/issl_guides.txt'
     # Key: accession, Value: temporary file path
     issl_output_files = {}
 
     # Begin scoring - single processor mode
     if processors == 1:
-
         for accs in accessions:
-            fpStdout = NamedTemporaryFile(delete=False)
-            _run_issl_score(accession, guides_file.name, fpStdout)
-            issl_output_files[accs] = fpStdout.name
+            fpStdout = NamedTemporaryFile(delete=False).name
+            # _run_issl_score(accession, guides_file, fpStdout)
+            _run_issl_score(accs, guides_file.name, fpStdout)
+            issl_output_files[accs] = fpStdout
 
     # Begin scoring - multi-processor mode
     else:
+        args = []
+        for accs in accessions:
+            tmp_file = NamedTemporaryFile(delete=False).name
+            issl_output_files[accs] = tmp_file
+            # args.append((accs, guides_file, tmp_file))
+            args.append((accs, guides_file.name, tmp_file))
         with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
-
-            args = []
-            for accs in accessions:
-                tmp_file = NamedTemporaryFile(delete=False).name
-                issl_output_files[accs] = tmp_file
-                args.append((accs, guides_file.name, tmp_file))
-
             p.starmap(_run_issl_score, args)
 
     # Collect all the scores
@@ -97,70 +97,117 @@ def run_offtarget_scoring(guides, accessions, processors=0):
         'unique_sites' : [],
         'total_sites' :  [],
     }
-    for accs in issl_output_files:
-        with open(issl_output_files[accs], 'r') as fp:
-            for line in fp:
-                seq, mit, cfd, uniqueSites, totalSites, *_ = [x.strip() for x in line.split('\t')]
 
-                scores['accession'].append(accs)
-                scores['sequence'].append(seq)
-                
-                # reverse the global off-target score to what is now the 'assembly score'
-                scores['mit'].append(10_000.0 / float(mit) - 100.0) 
-                scores['cfd'].append(10_000.0 / float(cfd) - 100.0)
-                
-                scores['unique_sites'].append(uniqueSites)
-                scores['total_sites'].append(totalSites)
+    # print(issl_output_files)
+    for accs in issl_output_files:
+        # shutil.move(issl_output_files[accs], f'/mnt/ssd1/carl/ViralCut/examples/genomes-viruses/data/issl_offtargets/{accs}.txt')
+        with open(issl_output_files[accs], 'r') as fp:
+            lines = fp.readlines()
+        lines = [line.strip().split('\t') for line in lines]
+
+        for idx, (_, mit, cfd, uniqueSites, totalSites) in enumerate(lines):
+            scores['accession'].append(accs)
+            scores['sequence'].append(guides[idx])
+            
+            # reverse the global off-target score to what is now the 'assembly score'
+            # scores['mit'].append(10_000.0 / float(mit) - 100.0) 
+            # scores['cfd'].append(10_000.0 / float(cfd) - 100.0)
+            scores['mit'].append(float(mit)) 
+            scores['cfd'].append(float(cfd))
+
+            scores['unique_sites'].append(uniqueSites)
+            scores['total_sites'].append(totalSites)
 
     return scores
 
+def process_target_accession(target_accession):
+    if config.VERBOSE:
+        print('Downloading target sequence')
+    download_ncbi_assemblies([target_accession])
+    if config.VERBOSE:
+        print('Extracting guides')
+    guides = get_guides_from_genome(target_accession)
+    if config.VERBOSE:
+        print('Creating ViralCutCollection')
+    collection = create_collection_from_accession(target_accession, guides)
+    return collection
 
-def run_analysis(gene_id, accessions=None):
+def process_target_gene(target_gene_id):
+    if config.VERBOSE:
+        print('Downloading target sequence')
+    download_ncbi_genes([target_gene_id])
+    if config.VERBOSE:
+        print('Extracting guides')
+    guides = get_guides_from_gene(target_gene_id)
+    if config.VERBOSE:
+        print('Creating ViralCutCollection')
+    collection = create_collection_from_gene(target_gene_id, guides)
+    return collection
+
+def process_evaluation_accessions(collection: ViralCutCollection, evaluation_accessions):
+    collection.accessions =  evaluation_accessions
+    evaluation_tax_ids = get_tax_ids_from_accessions(evaluation_accessions)
+    collection.update_phylogenetic_tree(evaluation_tax_ids)
+    collection.accession_to_tax_id = {
+        accs : tax_id
+        for accs, tax_id in zip(evaluation_accessions, evaluation_tax_ids)
+    }
+    return evaluation_accessions
+
+def process_evaluation_tax_id(collection: ViralCutCollection, evaluation_root_tax_id):
+    collection.reset_phylogenetic_tree(evaluation_root_tax_id)
+    evaluation_tax_ids = [node['taxid'] for node in collection._ncbi_tree.traverse("postorder")]
+    evaluation_accessions = get_accession_from_tax_id(evaluation_tax_ids)
+    collection.accessions =  evaluation_accessions
+    collection.accession_to_tax_id = {
+        accs : tax_id
+        for accs, tax_id in zip(evaluation_accessions, evaluation_tax_ids)
+    }
+    return evaluation_accessions
+
+
+def run_analysis(target_accession = None, target_gene_id = None,  evaluation_accessions = None, evaluation_root_tax_id = None):
     '''Run pan-viral sgRNA design
 
     Arguments:
-        gene_id (string):   The gene ID to extract sites from.
-        accessions (list):  (optional) A list of accessions to evaluate. If None then the 
-                            pre-compiled list of human viruses will be used.
+        target_accession (string):          The NCBI accession to target.
+        target_gene_id (string):            The gene ID to extract sites from.
+        evaluation_accessions (list):       A list of accessiion to evaluate
+        evaluation_root_tax_id (string):    The taxon id for the root of the phylogentic tree to evaluate
 
     Returns:
         A ViralCutCollection with results.
     '''
-    
-    if accessions is None:
-        accessions = get_accessions_from_ncbi_table_export()
+    if ((target_accession == None and target_gene_id == None) or 
+        (target_accession != None and target_gene_id != None)) :
+        print("Please provide either a target accession OR target gene id")
+        exit(-1)
+
+    if ((evaluation_accessions == None and evaluation_root_tax_id == None) or 
+        (evaluation_accessions != None and evaluation_root_tax_id != None)) :
+        print("Please provide either a list of accessions OR a taxon id for the root of the phylogentic tree to evaluate against")
+        exit(-1)
+
+    if target_gene_id:
+        collection = process_target_gene(target_gene_id)
+    elif target_accession:
+        collection = process_target_accession(target_accession)
+
+    if evaluation_accessions:
+        evaluation_accessions = process_evaluation_accessions(collection, evaluation_accessions)
+    elif evaluation_root_tax_id:
+        evaluation_accessions = process_evaluation_tax_id(collection, evaluation_root_tax_id)
 
     # Download the requested accessions
     if config.VERBOSE:
         print('Downloading assemblies')
-
-    accs_downloaded = download_ncbi_assemblies(accessions)
+    download_ncbi_assemblies(evaluation_accessions)
 
     # Create ISSL indexes for the downloaded accessions
     if config.VERBOSE:
         print('Generating ISSL indexes')
+    create_issl_indexes(evaluation_accessions)
 
-    create_issl_indexes(accessions)
-
-    # Download the gene then extract CRISPR sites and score each
-    if config.VERBOSE:
-        print('Downloading gene sequence then analysing')
-
-    download_ncbi_genes([gene_id])
-
-    # Extract sites    
-    if config.VERBOSE:
-        print('Extracting target sites')
-    collection = process_gene_by_id(gene_id)
-
-    collection.gene_id = gene_id
-    collection.accessions = accessions
-    
-    collection.accession_to_tax_id = {
-        accs : tax_id
-        for accs, tax_id in zip(accessions, analysis.get_tax_ids_from_accessions(accessions, uniq=False))
-    }
-    
     # Evaluate on-target efficiency via Crackling    
     if config.VERBOSE:
         print('Evaluating efficiency')
@@ -176,27 +223,28 @@ def run_analysis(gene_id, accessions=None):
             targets_to_score.append(guide)
 
     # Do off-target scoring
-    scores = run_offtarget_scoring(targets_to_score, accessions)
+    scores = run_offtarget_scoring(targets_to_score, evaluation_accessions)
 
     # Add scores to the collection
-    for score_name in config.ISSL_SCORES:
-        for accession, seq, score, uniq, total in zip(
-            scores['accession'],
-            scores['sequence'],
-            scores[score_name],
-            scores['unique_sites'],
-            scores['total_sites'],
-        ):
-            collection[seq].add_assembly_score(
-                accession,
-                score_name,
-                score,
-                uniq,
-                total
-            )
+    # for score_name in config.ISSL_SCORES:
+    for accession, seq, mit, cfd, uniq, total in zip(
+        scores['accession'],
+        scores['sequence'],
+        scores['mit'],
+        scores['cfd'],
+        scores['unique_sites'],
+        scores['total_sites'],
+    ):
+        collection[seq].add_assembly_score(
+            accession,
+            mit,
+            cfd,
+            uniq,
+            total
+        )
 
     # Calculate node scores
-    #collection.calculate_node_scores()
+    collection.calculate_node_scores()
 
     if config.VERBOSE:
         print('Done.')
