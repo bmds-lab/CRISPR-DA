@@ -13,13 +13,9 @@ import re
 import subprocess
 import joblib
 import importlib
+import shutil
 
-from .data import ViralCutCollection
-from .data import Guide
-from .data import get_cached_gene_seqs_by_id
-from .data import get_cached_gene_information_by_id
-
-import pandas as pd
+from . import utils
 
 CODE_ACCEPTED = 1
 CODE_REJECTED = 0
@@ -148,8 +144,7 @@ def run_mini_crackling(candidate_guides):
         check=True
     )
 
-    os.replace('RNAfold_output.fold', config['rnafold']['output'])
-
+    shutil.move('RNAfold_output.fold', config['rnafold']['output'])
     rna_structures = {}
     with open(config['rnafold']['output'], 'r') as fRnaOutput:
         i = 0
@@ -162,7 +157,7 @@ def run_mini_crackling(candidate_guides):
             else:
                 # 1st, 3rd, 5th, etc.
                 line_2 = line.rstrip()
-                rna_structures[trans_to_dna(target[1:20])] = [
+                rna_structures[utils.trans_to_dna(target[1:20])] = [
                     line_1, line_2, target
                 ]
 
@@ -186,7 +181,7 @@ def run_mini_crackling(candidate_guides):
         candidate_guides[target23]['ss_structure'] = structure
         candidate_guides[target23]['ss_energy'] = energy
 
-        if trans_to_dna(target) != target23[0:20] and trans_to_dna('C'+target[1:]) != target23[0:20] and trans_to_dna('A'+target[1:]) != target23[0:20]:
+        if utils.trans_to_dna(target) != target23[0:20] and utils.trans_to_dna('C'+target[1:]) != target23[0:20] and utils.trans_to_dna('A'+target[1:]) != target23[0:20]:
             candidate_guides[target23]['passed_secondary_structure'] = CODE_ERROR
             continue
 
@@ -194,7 +189,7 @@ def run_mini_crackling(candidate_guides):
         if match_structure:
             energy = ast.literal_eval(match_structure.group(1))
             if energy < float(config['rnafold']['low_energy_threshold']):
-                candidate_guides[trans_to_dna(target23)]['passed_secondary_structure'] = CODE_REJECTED
+                candidate_guides[utils.trans_to_dna(target23)]['passed_secondary_structure'] = CODE_REJECTED
             else:
                 candidate_guides[target23]['passed_secondary_structure'] = CODE_ACCEPTED
         else:
@@ -202,7 +197,7 @@ def run_mini_crackling(candidate_guides):
             if match_energy:
                 energy = ast.literal_eval(match_energy.group(1))
                 if energy <= float(config['rnafold']['high_energy_threshold']):
-                    candidate_guides[trans_to_dna(target23)]['passed_secondary_structure'] = CODE_REJECTED
+                    candidate_guides[utils.trans_to_dna(target23)]['passed_secondary_structure'] = CODE_REJECTED
                 else:
                     candidate_guides[target23]['passed_secondary_structure'] = CODE_ACCEPTED
 
