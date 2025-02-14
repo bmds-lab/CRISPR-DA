@@ -174,9 +174,10 @@ def get_accession_issl_index(accession: str):
     '''
 
     cache = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession
-    if len(cache.glob('*.issl')) == 0:
+    files = [x for x in cache.glob('*.issl')]
+    if len(files) == 0:
         raise RuntimeError(f'Could not find index for {accession}')
-    return cache.glob('*.issl')[0]
+    return files[0]
 
 def get_missing_issl_index(accessions: list[str]):
     '''
@@ -191,7 +192,7 @@ def get_missing_issl_index(accessions: list[str]):
     missing_indexes = []
     for accession in accessions:
         cache = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession
-        if len(cache.glob('*.issl')) == 0:
+        if len([cache.glob('*.issl')]) == 0:
             missing_indexes.append(accession)
     return missing_indexes
 
@@ -206,12 +207,18 @@ def get_assembly_fna(accession: str):
         The path of the FNA file for the provide accession
     '''
     cache = Path(config.CACHE) / accession[:config.CACHE_PREFIX_LENGTH] / accession
-    if len(cache.glob('*.fna')) > 1:
+    fna_files = [x for x in cache.glob('*.fna')]
+    if len(fna_files) > 1:
             raise RuntimeError((
                 f'Found {len(cache.glob('*.issl'))} FNA files for {accession}. '
                 f'There should be one.'
             ))
-    return cache.glob('*.fna')[0]
+    elif len(fna_files) == 0:
+            raise RuntimeError((
+                f'Could not find FNA files for {accession}. '
+                f'There should be one.'
+            ))
+    return fna_files[0]
 
 def get_accessions_from_ncbi_table_export(
     filePath=config.NCBI_HUMAN_VIRUSES_TABLE,
