@@ -34,51 +34,6 @@ config['rnafold']['high_energy_threshold'] = -18
 config['sgrnascorer2']['model'] = 'model-1_0_2.txt'
 config['sgrnascorer2']['score_threshold'] = 0
 
-def process_gene_by_id(gene_id):
-    '''Takes a genetic sequence and returns a ViralCutCollection of all CRISPR
-    target sites.
-
-    Arguments:
-        seq (string): The input genetic sequence to analyse
-
-    Returns:
-        An instance of ViralCutCollection
-    '''
-    pattern_forward = r'(?=([ATCG]{21}GG))'
-    pattern_reverse = r'(?=(CC[ACGT]{21}))'
-
-    gene_id, seq = list(get_cached_gene_seqs_by_id([gene_id]))[0]
-
-    collection = ViralCutCollection()
-
-    for pattern, strand, seqModifier in [
-        [pattern_forward, '+', lambda x : x],
-        [pattern_reverse, '-', lambda x : rc(x)]
-    ]:
-        p = re.compile(pattern)
-        for m in p.finditer(seq):
-            target23 = seqModifier(seq[m.start() : m.start() + 23])
-            collection[target23] = Guide(target23)
-            collection[target23]['start'] = m.start()
-            collection[target23]['end'] = m.start() + 23
-            collection[target23]['strand'] = strand
-
-    collection.gene_properties = get_cached_gene_information_by_id(gene_id)
-
-    return collection
-
-def rc(dna):
-    complements = str.maketrans('acgtrymkbdhvACGTRYMKBDHV', 'tgcayrkmvhdbTGCAYRKMVHDB')
-    rcseq = dna.translate(complements)[::-1]
-    return rcseq
-
-# Function that replaces U with T in the sequence (to go back from RNA to DNA)
-def trans_to_dna(rna):
-    switch_UT = str.maketrans('U', 'T')
-    dna = rna.translate(switch_UT)
-    return dna
-
-
 def run_mini_crackling(candidate_guides):
     '''This is a minimised version of Crackling, based on:
         https://github.com/bmds-lab/Crackling/blob/9e9d78196e97fe11e60f0d9bcc7c7e1349a03ae4/src/crackling/Crackling.py
