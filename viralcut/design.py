@@ -14,6 +14,12 @@ import subprocess
 import joblib
 import importlib
 import shutil
+import dill
+import numpy as np
+import torch as t
+from Bio.Seq import Seq
+from Bio.SeqUtils import MeltingTemp as mt
+from importlib import resources 
 
 from . import utils
 
@@ -33,6 +39,34 @@ config['rnafold']['low_energy_threshold'] = -30
 config['rnafold']['high_energy_threshold'] = -18
 config['sgrnascorer2']['model'] = 'model-1_0_2.txt'
 config['sgrnascorer2']['score_threshold'] = 0
+
+
+def run_crispr_deep_ensemble(candidate_guides):
+    # load model
+    with resources.path('viralcut.resources', 'CRISPR_DeepEnsemble.dk') as model:
+        with open(model, 'rb') as inFile:
+            ensemble = dill.load(inFile)
+
+    onehotEncoded = []
+    for guide in candidate_guides:
+        for target30 in candidate_guides[guide]['30mer']:
+            onehotEncoded.append(np.array(utils.one_hot_encode(target30)).tolist())
+    meltingTemp = []
+    for guide in candidate_guides:
+        for target30 in candidate_guides[guide]['30mer']:
+            myseq = Seq(target30)
+            meltingTemp.append(mt.Tm_NN(myseq))
+    _onehot = t.tensor(onehotEncoded, dtype=t.float64).transpose(1,2).unsqueeze(dim=1) 
+    _meltingpoint = t.tensor(meltingTemp, dtype=t.float64).reshape(-1,1)
+
+    pred = ensemble.predict(inputs = (_onehot, _meltingpoint)).tolist()
+    for guide in candidate_guides:
+        for target30 in candidate_guides[guide]['30mer']:
+            if hasattr(candidate_guides[guide], 'CDE_score'):
+                candidate_guides[guide]['CDE_score'].append(pred.pop(0))
+            else:
+                candidate_guides[guide]['CDE_score'] = [pred.pop(0)]
+
 
 def run_mini_crackling(candidate_guides):
     '''This is a minimised version of Crackling, based on:
