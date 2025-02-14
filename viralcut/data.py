@@ -379,7 +379,7 @@ def create_issl_indexes(accessions,
 
     # remove accessions if the index already exists
     if not force:
-        accessions = cache.get_missing_issl_index()
+        accessions = cache.get_missing_issl_index(accessions)
 
     args = []
     for accession in accessions:
@@ -411,16 +411,17 @@ def create_issl_indexes(accessions,
             ])
         args.append(commands)
 
-    args, accessions = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]
     errors = []
-    if processors == 1:
-        for idx, arg in enumerate(args):
-            if not _create_issl_index(arg):
-                errors.append(accessions[idx])
-    else:
-        with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
-            success = p.starmap(_create_issl_index, [[x] for x in args])
-            errors = [accessions[idx] for idx, result in enumerate(success) if not result]
+    if len(args) > 0:
+        args, accessions = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]
+        if processors == 1:
+            for idx, arg in enumerate(args):
+                if not _create_issl_index(arg):
+                    errors.append(accessions[idx])
+        else:
+            with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
+                success = p.starmap(_create_issl_index, [[x] for x in args])
+                errors = [accessions[idx] for idx, result in enumerate(success) if not result]
     return errors
 
 
