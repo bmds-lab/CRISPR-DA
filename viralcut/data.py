@@ -541,13 +541,13 @@ def create_collection_from_gene(gene_id, guides):
             collection[guide.seq]['start'] = [start]
             collection[guide.seq]['end'] = [start + 23]
             collection[guide.seq]['strand'] = [strand]
-            collection[guide.seq]['30mr'] = [target30]
+            collection[guide.seq]['30mer'] = [target30]
             collection[guide.seq]['occurrences'] = 1
         else:
             collection[guide.seq]['start'].append(start)
             collection[guide.seq]['end'].append(start + 23)
             collection[guide.seq]['strand'].append(strand)
-            collection[guide.seq]['30mr'].append(target30)
+            collection[guide.seq]['30mer'].append(target30)
             collection[guide.seq]['occurrences'] += 1
     return collection
 
@@ -562,12 +562,12 @@ def create_collection_from_accession(accession, guides):
             collection[guide.seq]['start'] = [start]
             collection[guide.seq]['end'] = [start + 23]
             collection[guide.seq]['strand'] = [strand]
-            collection[guide.seq]['30mr'] = [target30]
+            collection[guide.seq]['30mer'] = [target30]
             collection[guide.seq]['occurrences'] = 1
         else:
             collection[guide.seq]['start'].append(start)
             collection[guide.seq]['end'].append(start + 23)
             collection[guide.seq]['strand'].append(strand)
-            collection[guide.seq]['30mr'].append(target30)
+            collection[guide.seq]['30mer'].append(target30)
             collection[guide.seq]['occurrences'] += 1
     return collection
