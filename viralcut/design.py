@@ -43,7 +43,7 @@ config['sgrnascorer2']['score_threshold'] = 0
 
 def run_crispr_deep_ensemble(candidate_guides):
     # load model
-    with resources.path('viralcut.resources', 'CRISPR_DeepEnsemble.dk') as model:
+    with resources.path('viralcut.resources', 'CRISPR_DeepEnsemble.pkl') as model:
         with open(model, 'rb') as inFile:
             ensemble = dill.load(inFile)
 
