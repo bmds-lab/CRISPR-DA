@@ -16,19 +16,14 @@ Notes
 __all__ = ['run_analysis']
 
 import os
-import shutil
 import subprocess
 import multiprocessing
-
-from collections import namedtuple
-from glob import glob
 from tempfile import NamedTemporaryFile
 
 
 from . import config
-from .design import run_mini_crackling
+from .design import run_mini_crackling, run_crispr_deep_ensemble
 from .data import *
-from . import cache
 
 def _run_issl_score(accession, path_guides, path_stdout):
     # assume the index exists and there is only one.
