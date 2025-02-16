@@ -203,21 +203,22 @@ def run_analysis(target_accession = None, target_gene_id = None,  evaluation_acc
         print('Generating ISSL indexes')
     create_issl_indexes(evaluation_accessions)
 
+    run_crispr_deep_ensemble(collection)
+
     # Evaluate on-target efficiency via Crackling    
     if config.VERBOSE:
         print('Evaluating efficiency')
     run_mini_crackling(collection)
 
     # Filter out guides that should not be assessed for off-target risk
-    if config.VERBOSE:
-        print('Assessing off-target risk')
-        
     targets_to_score = []
     for guide in collection:
         if collection[guide]['consensus_count'] >= config.CONSENSUS_N:
             targets_to_score.append(guide)
 
     # Do off-target scoring
+    if config.VERBOSE:
+        print('Assessing off-target risk')
     scores = run_offtarget_scoring(targets_to_score, evaluation_accessions)
 
     # Add scores to the collection
