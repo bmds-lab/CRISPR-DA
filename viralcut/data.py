@@ -500,7 +500,9 @@ def get_guides_from_gene(gene_id):
         ]:
             p = re.compile(pattern)
             for m in p.finditer(seq):
-                target30 = seqModifier(seq[m.start() - 4 : m.start() + 23 + 3])
+                front_offset = 4 if strand == '+' else 3
+                back_offset = 3 if strand == '+' else 4
+                target30 = seqModifier(seq[m.start() - front_offset: m.start() + 23 + back_offset])
                 target23 = target30[4:-3]
                 guides.append((Guide(target23), target30, m.start(), strand))
 
@@ -524,7 +526,9 @@ def get_guides_from_genome(accession):
         ]:
             p = re.compile(pattern)
             for m in p.finditer(seq):
-                target30 = seqModifier(seq[m.start() - 4 : m.start() + 23 + 3])
+                front_offset = 4 if strand == '+' else 3
+                back_offset = 3 if strand == '+' else 4
+                target30 = seqModifier(seq[m.start() - front_offset: m.start() + 23 + back_offset])
                 target23 = target30[4:-3]
                 guides.append((Guide(target23), target30, m.start(), strand))
 
