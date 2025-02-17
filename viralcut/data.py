@@ -209,34 +209,6 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
     # Done!
     return accessions_downloaded
 
-
-
-# def get_cached_genomes_by_id(gene_ids, download_missing=False):
-#     '''A generator method that provides the sequence of the requested genes.
-
-#     Arguments:
-#         gene_ids (list):         A list of gene IDs to use in the generator
-#         download_missing (bool): If a gene hasn't been cached, download it.
-
-#     '''
-
-#     if download_missing:
-#         to_download = []
-
-#         for gene_id in gene_ids:
-#             if not os.path.exists(get_gene_cache(gene_id)):
-#                 to_download.append(gene_id)
-
-#         download_ncbi_genes(to_download)
-
-#     for gene_id in gene_ids:
-#         fna_fp = os.path.join(get_gene_cache(gene_id), f"{gene_id}.fna")
-
-#         with open(fna_fp, 'r') as fp:
-#             for header, seq in parse_fna(fp):
-#                 yield gene_id, seq
-
-
 def get_properties_from_ncbi_fasta_header(header, key=None):
     '''The NCBI Datasets API provides a multi-FASTA file when downloading genes.
     The headers are formatted like this:
