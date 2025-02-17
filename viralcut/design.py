@@ -41,6 +41,9 @@ config['rnafold']['high_energy_threshold'] = -18
 config['sgrnascorer2']['model'] = 'model-1_0_2.txt'
 config['sgrnascorer2']['score_threshold'] = 0
 
+t.manual_seed(123)
+dtype = t.float64
+t.set_default_dtype(dtype)
 
 def run_crispr_deep_ensemble(candidate_guides, score_threshold=0.7, uncertainty_threshold=0.05):
     # NOTE
@@ -67,8 +70,8 @@ def run_crispr_deep_ensemble(candidate_guides, score_threshold=0.7, uncertainty_
         for target30 in candidate_guides[guide]['30mer']:
             myseq = Seq(target30)
             meltingPoint.append(mt.Tm_NN(myseq))
-    _onehot = t.tensor(oneHot, dtype=t.float64).transpose(1,2).unsqueeze(dim=1) 
-    _meltingpoint = t.tensor(meltingPoint, dtype=t.float64).reshape(-1,1)
+    _onehot = t.tensor(oneHot).transpose(1,2).unsqueeze(dim=1) 
+    _meltingpoint = t.tensor(meltingPoint).reshape(-1,1)
 
     # Score guides
     prediction = ensemble.predict(inputs = (_onehot, _meltingpoint)).tolist()
