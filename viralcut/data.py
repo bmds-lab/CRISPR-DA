@@ -36,37 +36,6 @@ def collection_from_pickle(filename):
         print('Setting autosave path')
     collection._pickle_filepath = filename
 
-    ### # Recreate parts of the Collection that would not have been Pickled
-    ### if config.VERBOSE:
-    ###     print('Recreating components that were not Pickled')
-    ### collection._ncbi = NCBITaxa()
-    ###
-    ### try:
-    ###     if config.VERBOSE:
-    ###         print('Trying to load tree from Newick')
-    ###     collection._ncbi_tree = read_newick(collection._ncbi_tree_newick)
-    ###
-    ###     if config.VERBOSE:
-    ###         print('Annotating tree')
-    ###     collection._ncbi.annotate_tree(collection._ncbi_tree)
-    ###
-    ###     if config.VERBOSE:
-    ###         print('Success')
-    ###
-    ### except Exception as e:
-    ###     print(e)
-    ###     print('... trying another way to load the tree')
-    ###     collection._ncbi_tree = collection._ncbi.get_topology(
-    ###         collection.get_tax_ids_in_analysis(),
-    ###         intermediate_nodes=True
-    ###     )
-    ### #else:
-    ### #    print('... trying even another way to load the tree')
-    ### #    collection._ncbi_tree = collection._ncbi.get_topology(
-    ### #        [config.ROOT_TAX_ID],
-    ### #        intermediate_nodes=True
-    ### #    )
-
     print('Loaded')
     return collection
 
