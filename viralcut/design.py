@@ -51,9 +51,8 @@ def run_crispr_deep_ensemble(candidate_guides, score_threshold=0.7, uncertainty_
     # UQ = Uncertainty Quantification 
 
     # Load deep ensemble from resources
-    with resources.path('viralcut.resources', 'CRISPR_DeepEnsemble.pkl') as model:
-        with open(model, 'rb') as inFile:
-            ensemble = dill.load(inFile)
+    with resources.path('viralcut.resources', 'CRISPR_DeepEnsemble.zip') as model:
+        ensemble = CRISPR_DeepEnsemble.RegressionDeepEnsemble(load_from=model)
 
     # Convert threshold percent to threshold value
     with resources.path('viralcut.resources', 'trainingResults.pkl') as trainingResults:
