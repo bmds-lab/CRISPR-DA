@@ -43,20 +43,25 @@ config['sgrnascorer2']['score_threshold'] = 0
 
 
 def run_crispr_deep_ensemble(candidate_guides, score_threshold=0.7, uncertainty_threshold=0.05):
-    # load model
+    # NOTE
+    # CDE = CRISPR Deep Ensemble
+    # UQ = Uncertainty Quantification 
+
+    # Load deep ensemble from resources
     with resources.path('viralcut.resources', 'CRISPR_DeepEnsemble.pkl') as model:
         with open(model, 'rb') as inFile:
             ensemble = dill.load(inFile)
 
+    # Convert threshold percent to threshold value
     with resources.path('viralcut.resources', 'trainingResults.pkl') as trainingResults:
         trainingResults = pd.read_pickle("/mnt/ssd1/ismb-2023/carl/DeepRegressionEnsembles-CRISPRon/trainingResults.pkl")
-    uncertainty_threshold = np.quantile(trainingResults["IQR"].to_numpy(), [uncertainty_threshold], interpolation="nearest")
+    UQ_threshold = np.quantile(trainingResults["IQR"].to_numpy(), [uncertainty_threshold], interpolation="nearest")
 
+    # Encode data and extract features
     oneHot = []
     for guide in candidate_guides:
         for target30 in candidate_guides[guide]['30mer']:
             oneHot.append(np.array(utils.one_hot_encode(target30)).tolist())
-
     meltingPoint = []
     for guide in candidate_guides:
         for target30 in candidate_guides[guide]['30mer']:
@@ -65,30 +70,31 @@ def run_crispr_deep_ensemble(candidate_guides, score_threshold=0.7, uncertainty_
     _onehot = t.tensor(oneHot, dtype=t.float64).transpose(1,2).unsqueeze(dim=1) 
     _meltingpoint = t.tensor(meltingPoint, dtype=t.float64).reshape(-1,1)
 
+    # Score guides
     prediction = ensemble.predict(inputs = (_onehot, _meltingpoint)).tolist()
-    uncertaintyBounds = ensemble.uncertainty_bounds(inputs = (_onehot, _meltingpoint), n_samples=1000, lower=0.01, upper=0.99)
+    UQ = ensemble.uncertainty_bounds(inputs = (_onehot, _meltingpoint), n_samples=1000, lower=0.01, upper=0.99)
 
     for guide in candidate_guides:
         for target30 in candidate_guides[guide]['30mer']:
             score = prediction.pop(0)
-            uncertaintyLowerBound, uncertaintyUpperBound, uncertaintyIQR = uncertaintyBounds.pop(0)
-            uncertaintyRange = uncertaintyUpperBound - uncertaintyLowerBound
-            if hasattr(candidate_guides[guide], 'CRISPRDeepEnsemble_score'):
-                candidate_guides[guide]['CRISPRDeepEnsemble_score'].append(score)
-                candidate_guides[guide]['CRISPRDeepEnsemble_uncertainty_range'].append(uncertaintyRange)
-                candidate_guides[guide]['CRISPRDeepEnsemble_uncertainty_IQR'].append(uncertaintyIQR)
-                if score > score_threshold and uncertaintyRange < uncertainty_threshold:
-                    candidate_guides[guide]['CRISPRDeepEnsemble_passed'].append(True)
+            UQLowerBound, UQUpperBound, UQInterquartileRange = UQ.pop(0)
+            UQRange = UQUpperBound - UQLowerBound
+            if hasattr(candidate_guides[guide], 'CDE_score'):
+                candidate_guides[guide]['CDE_score'].append(score)
+                candidate_guides[guide]['CDE_UQ_range'].append(UQRange)
+                candidate_guides[guide]['CDE_UQ_IQR'].append(UQInterquartileRange)
+                if score > score_threshold and UQRange < UQ_threshold:
+                    candidate_guides[guide]['CDE_passed'].append(True)
                 else:
-                    candidate_guides[guide]['CRISPRDeepEnsemble_passed'].append(False)
+                    candidate_guides[guide]['CDE_passed'].append(False)
             else:
-                candidate_guides[guide]['CRISPRDeepEnsemble_score'] = [score]
-                candidate_guides[guide]['CRISPRDeepEnsemble_uncertainty_range'] = [uncertaintyRange]
-                candidate_guides[guide]['CRISPRDeepEnsemble_uncertainty_IQR'] = [uncertaintyIQR]
-                if score > score_threshold and uncertaintyRange < uncertainty_threshold:
-                    candidate_guides[guide]['CRISPRDeepEnsemble_passed'] = [True]
+                candidate_guides[guide]['CDE_score'] = [score]
+                candidate_guides[guide]['CDE_UQ_range'] = [UQRange]
+                candidate_guides[guide]['CDE_UQ_IQR'] = [UQInterquartileRange]
+                if score > score_threshold and UQRange < UQ_threshold:
+                    candidate_guides[guide]['CDE_passed'] = [True]
                 else:
-                    candidate_guides[guide]['CRISPRDeepEnsemble_passed'] = [False]
+                    candidate_guides[guide]['CDE_passed'] = [False]
 
 
 
