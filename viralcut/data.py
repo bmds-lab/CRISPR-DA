@@ -1,3 +1,10 @@
+'''
+data.py
+
+This file acts as an interface data from the NCBI Datasets v2 REST API (dataset.py) and the local cache (cache.py).
+The main file will make request and this interface will locate the data and perform some transformation.
+'''
+
 import json
 import pickle
 import os
