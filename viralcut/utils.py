@@ -36,4 +36,4 @@ def trans_to_dna(rna: str):
     return dna
 
 def one_hot_encode(seq, z='ATCG'):
-    return [list(map(lambda x: 1 if x==c else 0, z)) for c in seq]
+    return [list(map(lambda x: 1.0 if x==c else 0.0, z)) for c in seq]
