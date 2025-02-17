@@ -14,7 +14,6 @@ import subprocess
 import joblib
 import importlib
 import shutil
-import dill
 import numpy as np
 import torch as t
 import pandas as pd
@@ -22,6 +21,7 @@ from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
 from importlib import resources 
 
+from . import CRISPR_DeepEnsemble
 from . import utils
 
 CODE_ACCEPTED = 1
