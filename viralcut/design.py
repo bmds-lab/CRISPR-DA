@@ -60,12 +60,22 @@ def run_crispr_deep_ensemble(candidate_guides):
     _meltingpoint = t.tensor(meltingTemp, dtype=t.float64).reshape(-1,1)
 
     pred = ensemble.predict(inputs = (_onehot, _meltingpoint)).tolist()
+    uncertaintyBounds = ensemble.uncertainty_bounds(inputs = (_onehot, _meltingpoint), n_samples=1000, lower=0.01, upper=0.99)
+
     for guide in candidate_guides:
         for target30 in candidate_guides[guide]['30mer']:
             if hasattr(candidate_guides[guide], 'CDE_score'):
                 candidate_guides[guide]['CDE_score'].append(pred.pop(0))
+                lower, upper, iqr = uncertaintyBounds.pop(0)
+                candidate_guides[guide]['CDE_lower'].append(lower)
+                candidate_guides[guide]['CDE_upper'].append(upper)
+                candidate_guides[guide]['CDE_iqr'].append(iqr)
             else:
                 candidate_guides[guide]['CDE_score'] = [pred.pop(0)]
+                lower, upper, iqr = uncertaintyBounds.pop(0)
+                candidate_guides[guide]['CDE_lower'] = [lower]
+                candidate_guides[guide]['CDE_upper'] = [upper]
+                candidate_guides[guide]['CDE_iqr'] = [iqr]
 
 
 def run_mini_crackling(candidate_guides):
