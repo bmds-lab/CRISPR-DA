@@ -1,3 +1,12 @@
+'''
+dataset.py
+
+This file gets data from NCBI datasets using NCBI Datasets v2 REST API.
+More details can be found here:
+https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/rest-api/
+
+'''
+
 import os
 import netrc
 from requests import get
@@ -7,7 +16,8 @@ GENOME_ENDPOINT = 'https://api.ncbi.nlm.nih.gov/datasets/v2/genome'
 GENE_ENDPOINT = 'https://api.ncbi.nlm.nih.gov/datasets/v2gene'
 AUTH = None
 
-# Check for NCBI API key
+# Check for an NCBI API key saved as an enviroment variable or saved in the users .netrc file
+# NOTE: This is not required but will help avoid request rate limits
 try:
     # Attempt to get API key from enviroment variable 'NCBI_API_KEY'
     AUTH = HTTPBasicAuth('api-key', os.environ['NCBI_API_KEY'])
@@ -35,8 +45,8 @@ def get_genbank_dataset_reports_by_taxon(tax_ids):
     '''
     This functions queries the NCBI Dataset V2 REST API.
     Specifcally, queries the genome dataset for dataset reports
-    based on taxons. This request specifcally filters for full 
-    genomes, that exactly match the given taxons from Genbank.
+    based on taxons. This request filters for full genomes, 
+    that exactly match the given taxons from Genbank.
     https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/rest-api/#get-/genome/taxon/-taxons-/dataset_report
 
     Arguments:
@@ -60,8 +70,8 @@ def get_refseq_dataset_reports_by_taxon(tax_ids):
     '''
     This functions queries the NCBI Dataset V2 REST API.
     Specifcally, queries the genome dataset for dataset reports
-    based on taxons. This request specifcally filters for full 
-    genomes, that exactly match the given taxons from RefSeq.
+    based on taxons. This request specifcally filters for full genomes, 
+    that exactly match the given taxons from RefSeq.
     https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/rest-api/#get-/genome/taxon/-taxons-/dataset_report
 
     Arguments:
@@ -82,7 +92,7 @@ def get_refseq_dataset_reports_by_taxon(tax_ids):
 def get_genes_by_id(gene_ids):
     '''
     This functions queries the NCBI Dataset V2 REST API.
-    Specifcally, queries the gene dataset for the gene fasta file.
+    Specifcally, gets the gene fasta file for the given gene ids from the gene dataset.
     https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/rest-api/#get-/gene/id/-gene_ids-/download
     Arguments:
         gene_ids ([int]): A list of NCBI gene ids
@@ -91,7 +101,7 @@ def get_genes_by_id(gene_ids):
         The zip file in bytes format
     '''
     # Query NCBI dataset API
-    resp = get(url=f'{GENE_ENDPOINT}/id/{"%2C".join(gene_ids)}/download?include_annotation_type=FASTA_GENE', auth=AUTH)
+    resp = get(url=f'{GENE_ENDPOINT}/id/{"%2C".join([str(x) for x in gene_ids])}/download?include_annotation_type=FASTA_GENE', auth=AUTH)
     # Check if we got a HTTP error
     resp.raise_for_status()
     return resp.content
@@ -99,7 +109,7 @@ def get_genes_by_id(gene_ids):
 def get_assembly_by_accession(accessions):
     '''
     This functions queries the NCBI Dataset V2 REST API.
-    Specifcally, queries the genome dataset for the accessions fasta file.
+    Specifcally, gets the fasta files for the given accessions from the genome dataset.
     https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/rest-api/#get-/genome/accession/-accessions-/download
     Arguments:
         accessions ([int]): A list of NCBI assembly accession
