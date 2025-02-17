@@ -1,10 +1,10 @@
 '''
+on-target.py
 
-CRISPR-Cas9 sgRNA design based on Crackling
-
-https://github.com/bmds-lab/Crackling/blob/9e9d78196e97fe11e60f0d9bcc7c7e1349a03ae4/src/crackling/Crackling.py
+This file contains methods for assessing a CRISPR guide RNA's on-target effiency.
+CRISPR DeepEnsemble can be found here: https://github.com/bmds-lab/CRISPR_DeepEnsemble 
+Crackling can be found here: https://github.com/bmds-lab/Crackling
 '''
-
 
 from tempfile import NamedTemporaryFile
 import ast
@@ -270,3 +270,5 @@ def run_mini_crackling(candidate_guides):
             candidate_guides[target23]['accepted_by_sgrnascorer'] == CODE_ACCEPTED,
             candidate_guides[target23]['passed_g20'] == CODE_ACCEPTED,
         ])
+
+        
