@@ -8,6 +8,7 @@ from ete3.parser.newick import read_newick, write_newick
 import pandas as pd
 
 from . import config
+from .guide import Guide
 
 CODE_ACCEPTED = 1
 CODE_REJECTED = 0
@@ -16,7 +17,7 @@ CODE_ERROR = '!'
 
 class ViralCutCollection:
     def __init__(self, _loading_from_pickled=False):
-        self.guides = {}
+        self.guides: dict[str, Guide] = {}
         self.target = None
         self.accessions = []
         self.accession_to_tax_id = {}
