@@ -18,10 +18,9 @@ from io import BytesIO, TextIOWrapper
 from . import config
 from . import dataset
 from . import cache
-from .collection import ViralCutCollection
-from .guide import Guide
 from . import utils
-
+from .guide import Guide
+from .collection import ViralCutCollection
 
 
 def collection_from_pickle(filename):
@@ -97,7 +96,7 @@ def download_ncbi_genes(gene_ids):
         # ZipFile.open() reads as a binary stream but we need a text stream.
         # https://docs.python.org/3/library/io.html#io.TextIOWrapper
         with TextIOWrapper(zfp.open('ncbi_dataset/data/gene.fna')) as fp:
-            for header, seq in parse_fna(fp):
+            for header, seq in utils.parse_fna(fp):
                 header_gene_id = get_properties_from_ncbi_fasta_header(header, key='GeneID')
 
                 filename = f"{header_gene_id}.fna"
