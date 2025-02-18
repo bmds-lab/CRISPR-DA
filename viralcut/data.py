@@ -409,6 +409,25 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
             print(f'Could not find taxId of {accs}')
     return tax_ids
 
+
+def get_name_from_accessions(accessions):
+    '''Given a list of accessions, return a list of scientific names.
+    
+    Arguments:
+        accessions (list): A list of accessions
+    
+    Returns:
+        A list of names (str).
+    '''
+    names = []
+    for accs in accessions:
+        report = cache.get_assembly_report(accs)
+        if 'taxId' in report['organism']:
+            names.append(report['organism']['organismName'])
+        elif config.VERBOSE:
+            print(f'Could not find taxId of {accs}')
+    return names
+
 def get_guides_from_gene(gene_id):
     '''
     This method will extract all the guides from the gene
