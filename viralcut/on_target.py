@@ -59,7 +59,7 @@ def run_CRISPR_DeepEnsemble(collection, score_threshold=0.7, uncertainty_thresho
     uncertainty_threshold (float): A uncertainty threshold that must not be exceed for a score to be considered 'acceptable'. 
                                    Must be in the range from 0 to 1.
 
-    Returns: None, all results are stored in the collection data structure
+    Returns: None, all results are stored in the ViralCut Collection
     '''
     # NOTE
     # CDE = CRISPR Deep Ensemble
@@ -123,7 +123,7 @@ def run_crackling_on_target(collection):
     Arguments:
         collection (ViralCut.Collection): A ViralCut collection containing the candidate guides.
     
-    Returns: None, all results are stored in the collection data structure
+    Returns: None, all results are stored in the ViralCut Collection
     '''
 
     ## G20
