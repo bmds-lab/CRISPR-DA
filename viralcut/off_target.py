@@ -22,9 +22,11 @@ def _run_issl_score(path_guides, path_issl_index, path_results):
     This is used to run scoring using mulitple processors.
 
     Arguments:
-        accession (ViralCut.Collection): 
-        path_guides (list): 
-        path_stdout (int):  
+        path_guides (path_like str): The file that contains the guides to be scored
+        path_issl_index (path_like str): The ISSL index file
+        path_results (path_like str): The output file, where the results will be stored
+    
+    Returns: None
     '''
     # assume the index exists and there is only one.
     with open(path_results, 'w') as outFile:
@@ -45,9 +47,13 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
         collection (ViralCut.Collection): A ViralCut collection containing the candidate guides.
         accessions (list): A list of accessions to be scored against.
         processors (int):  The number of processors to run. Zero indicates all available.
+
+    Returns: None, all results are stored in the ViralCut Collection
     '''
+    # Only process guides that were selected as efficient by on-target scoring
     guidesToScore = [g for g in collection if True in collection[g]['CDE_passed']]
 
+    # Create temporary working dir
     with TemporaryDirectory() as tmpDir:
         tmpPath = Path(tmpDir)
         # Write the guides that passed on-target scoring to a temporary file
@@ -75,10 +81,10 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
             with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
                 p.starmap(_run_issl_score, args)
 
+        # Add results to ViralCutCollection
         for accession in accessions:
             with open(resultsFiles[accession], 'r') as fp:
                 lines = fp.readlines()
             lines = [line.strip().split('\t') for line in lines]
-
             for guide, mit, cfd, uniqueSites, totalSites in lines:
                 collection[guide].add_assembly_score(accession, mit, cfd, uniqueSites, totalSites)
