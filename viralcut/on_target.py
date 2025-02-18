@@ -85,17 +85,17 @@ def run_CRISPR_DeepEnsemble(collection, score_threshold=0.7, uncertainty_thresho
 
     # Score guides
     prediction = ensemble.predict(inputs = (_onehot, _meltingpoint)).tolist()
-    UQ = ensemble.uncertainty_bounds(inputs = (_onehot, _meltingpoint), n_samples=1000, lower=0.01, upper=0.99)
+    UQLowerBound, UQUpperBound, UQInterquartileRange = [x.tolist() for x in ensemble.uncertainty_bounds(inputs = (_onehot, _meltingpoint), n_samples=1000, lower=0.01, upper=0.99)]
 
     for guide in collection:
         for target30 in collection[guide]['30mer']:
             score = prediction.pop(0)
-            UQLowerBound, UQUpperBound, UQInterquartileRange = UQ.pop(0)
-            UQRange = UQUpperBound - UQLowerBound
+            UQIQR = UQInterquartileRange.pop(0)
+            UQRange = UQUpperBound.pop(0) - UQLowerBound.pop(0)
             if hasattr(collection[guide], 'CDE_score'):
                 collection[guide]['CDE_score'].append(score)
                 collection[guide]['CDE_UQ_range'].append(UQRange)
-                collection[guide]['CDE_UQ_IQR'].append(UQInterquartileRange)
+                collection[guide]['CDE_UQ_IQR'].append(UQIQR)
                 if score > score_threshold and UQRange < UQ_threshold:
                     collection[guide]['CDE_passed'].append(True)
                 else:
@@ -103,7 +103,7 @@ def run_CRISPR_DeepEnsemble(collection, score_threshold=0.7, uncertainty_thresho
             else:
                 collection[guide]['CDE_score'] = [score]
                 collection[guide]['CDE_UQ_range'] = [UQRange]
-                collection[guide]['CDE_UQ_IQR'] = [UQInterquartileRange]
+                collection[guide]['CDE_UQ_IQR'] = [UQIQR]
                 if score > score_threshold and UQRange < UQ_threshold:
                     collection[guide]['CDE_passed'] = [True]
                 else:
