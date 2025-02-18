@@ -22,6 +22,8 @@ from Bio.SeqUtils import MeltingTemp as mt
 from importlib import resources 
 
 from . import CRISPR_DeepEnsemble
+import sys
+sys.modules['CRISPR_DeepEnsemble'] = CRISPR_DeepEnsemble
 from . import utils
 
 CODE_ACCEPTED = 1
