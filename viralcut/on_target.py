@@ -282,4 +282,4 @@ def run_crackling_on_target(collection):
             collection[target23]['accepted_by_sgrnascorer'] == CODE_ACCEPTED,
             collection[target23]['passed_g20'] == CODE_ACCEPTED,
         ])
-        collection[target23]['passed_crackling'] = CODE_ACCEPTED if collection[guide]['consensus_count'] >= 2 else CODE_REJECTED
+        collection[target23]['passed_crackling'] = CODE_ACCEPTED if collection[target23]['consensus_count'] >= 2 else CODE_REJECTED
