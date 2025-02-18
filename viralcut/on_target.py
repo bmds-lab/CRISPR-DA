@@ -72,7 +72,7 @@ def run_CRISPR_DeepEnsemble(collection, score_threshold=0.7, uncertainty_thresho
     # Convert threshold percent to threshold value
     with resources.path('viralcut.resources', 'trainingResults.pkl') as trainingResults:
         trainingResults = pd.read_pickle("/mnt/ssd1/ismb-2023/carl/DeepRegressionEnsembles-CRISPRon/trainingResults.pkl")
-    UQ_threshold = np.quantile(trainingResults["IQR"].to_numpy(), [uncertainty_threshold], interpolation="nearest")
+    UQ_threshold = np.quantile(trainingResults["range"].to_numpy(), [uncertainty_threshold], interpolation="nearest")
 
     # Encode data and extract features
     oneHot = []
