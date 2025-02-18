@@ -6,7 +6,7 @@ CRISPR DeepEnsemble can be found here: https://github.com/bmds-lab/CRISPR_DeepEn
 Crackling can be found here: https://github.com/bmds-lab/Crackling/blob/9e9d78196e97fe11e60f0d9bcc7c7e1349a03ae4/src/crackling/Crackling.py
 '''
 
-from tempfile import NamedTemporaryFile
+import sys
 import ast
 import os
 import re
@@ -17,14 +17,14 @@ import shutil
 import numpy as np
 import torch as t
 import pandas as pd
+from importlib import resources 
+from tempfile import NamedTemporaryFile
 from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
-from importlib import resources 
 
-from . import CRISPR_DeepEnsemble
-import sys
-sys.modules['CRISPR_DeepEnsemble'] = CRISPR_DeepEnsemble
 from . import utils
+from . import CRISPR_DeepEnsemble
+sys.modules['CRISPR_DeepEnsemble'] = CRISPR_DeepEnsemble
 
 CODE_ACCEPTED = 1
 CODE_REJECTED = 0
@@ -91,6 +91,7 @@ def run_CRISPR_DeepEnsemble(collection, score_threshold=0.7, uncertainty_thresho
     prediction = ensemble.predict(inputs = (_onehot, _meltingpoint)).tolist()
     UQLowerBound, UQUpperBound, UQInterquartileRange = [x.tolist() for x in ensemble.uncertainty_bounds(inputs = (_onehot, _meltingpoint), n_samples=1000, lower=0.01, upper=0.99)]
 
+    # Add scores to ViralCut Collection
     for guide in collection:
         for target30 in collection[guide]['30mer']:
             score = prediction.pop(0)
