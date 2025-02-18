@@ -24,6 +24,7 @@ class ViralCutCollection:
         self.target_properties = {}
         self.node_scores_calculated_for_guides = []
         self.node_scores = {} # key: tuple(node, guide, score_name); value: score
+        self.tree_map = {}
         self._ncbi = NCBITaxa()
         self._ncbi_tree = None
         self._ncbi_tree_newick = None
@@ -123,6 +124,8 @@ class ViralCutCollection:
             None
         '''
         self._ncbi_tree = self._ncbi.get_topology(tax_ids, intermediate_nodes=False)
+        self.map_phylogentic_tree()
+
 
     def reset_phylogenetic_tree(self, root_tax_id):
         '''
@@ -130,6 +133,12 @@ class ViralCutCollection:
         '''
         self._ncbi = NCBITaxa()
         self._ncbi_tree = self._ncbi.get_topology(root_tax_id, intermediate_nodes=True)
+        self.map_phylogentic_tree()
+
+    def map_phylogentic_tree(self):
+        self.tree_map = {}
+        for node in self._ncbi_tree.traverse("postorder"):
+            self.tree_map[str(node.taxid)] = node
 
 
     def get_tax_ids_in_analysis(self):
