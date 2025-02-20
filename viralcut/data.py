@@ -71,7 +71,9 @@ def download_ncbi_genes(gene_ids):
     # Keep track of which genes were actually downloaded.
     gene_ids_downloaded = []
 
-    NCBI_gene_files = dataset.get_genes_by_id(genes_to_download)
+    success, NCBI_gene_files = dataset.get_genes_by_id(genes_to_download)
+    if not success:
+        raise RuntimeError('Unable to download requested genes')
 
     # Process the downloaded data without writing it to disk, yet.
     in_memory = BytesIO(NCBI_gene_files)
@@ -157,8 +159,9 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
 
     for start in range(0, len(accs_to_download), config.NCBI_BATCH_SIZE):
 
-        assembly_files = dataset.get_assembly_by_accession(accs_to_download[start:start+config.NCBI_BATCH_SIZE])
-        
+        success, assembly_files = dataset.get_assembly_by_accession(accs_to_download[start:start+config.NCBI_BATCH_SIZE])
+        if not success:
+            raise RuntimeError('Unable to download requested assemblies')
         # Process the downloaded data without writing it to disk, yet.
         in_memory = BytesIO(assembly_files)
         with zf.ZipFile(in_memory) as zfp:
@@ -365,7 +368,9 @@ def get_accession_from_tax_id(tax_ids):
     for i in range(0, len(tax_ids), config.NCBI_BATCH_SIZE):
         batch = tax_ids[i:i+config.NCBI_BATCH_SIZE]
         # Check GenBank first
-        reports = dataset.get_genbank_dataset_reports_by_taxon(batch)
+        success, reports = dataset.get_genbank_dataset_reports_by_taxon(batch)
+        if not success:
+            raise RuntimeError('Unable to download requested assemblies reports')
         for report in reports:
             accession[i+batch.index(report['organism']['tax_id'])] = report['accession']
             # accession[report['organism']['tax_id']] = report['accession']
@@ -374,7 +379,9 @@ def get_accession_from_tax_id(tax_ids):
         if len(missed_tax_ids) < 1:
             continue
         # missed_tax_ids = [t_id for t_id in batch if t_id not in accession.keys()]
-        reports = dataset.get_refseq_dataset_reports_by_taxon(missed_tax_ids)
+        success, reports = dataset.get_refseq_dataset_reports_by_taxon(missed_tax_ids)
+        if not success:
+            raise RuntimeError('Unable to download requested assemblies reports')
         for report in reports:
             accession[tax_ids.index(report['organism']['tax_id'])] = report['accession']
             # accession[report['organism']['tax_id']] = report['accession']
