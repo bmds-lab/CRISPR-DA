@@ -41,6 +41,32 @@ except KeyError as _:
         print("WARNING: NCBI API request will be made WITHOUT authentication which will limit request rates")
 
 
+def _multi_attempt_get_request(url, max_attempts=5):
+    '''
+    This method will retry the get request if any issues occur.
+    Arguments:
+        url (str): the gest request url
+        max_attempts (int, optional): the maximum number of retries allowed
+    Returns:
+        success (bool): If the request succeeded without exceeding max attempts
+        resp : the get response or None if request exceeded max attempts
+
+    '''
+    attempts = 0
+    while attempts < max_attempts:
+        try:
+            # Run request
+            resp = get(url=url, auth=AUTH)
+            # Check if we got a HTTP error
+            resp.raise_for_status()
+            # No errors return resp
+            return True, resp
+        except:
+            attempts += 1
+            print(f'Request failed, retrying (attempt {attempts}/{max_attempts})')
+    print(f'Request failed, max attempts exceeded')
+    return False, None
+
 def get_genbank_dataset_reports_by_taxon(tax_ids):
     '''
     This functions queries the NCBI Dataset V2 REST API.
@@ -58,13 +84,11 @@ def get_genbank_dataset_reports_by_taxon(tax_ids):
 
     if len(tax_ids) > 1000:
         raise RuntimeError('Too many taxonomy ids specified')
-    # Query NCBI dataset API
-    resp = get(url=f'{GENOME_ENDPOINT}/taxon/{"%2C".join([str(x) for x in tax_ids])}/dataset_report?filters.assembly_level=complete_genome&filters.assembly_source=genbank&tax_exact_match=true&page_size={len(tax_ids)}', auth=AUTH)
-    # Check if we got a HTTP error
-    resp.raise_for_status()
-    # Response should be in json format
-    resp = resp.json()
-    return resp['reports']
+    url = (f'{GENOME_ENDPOINT}/taxon/{"%2C".join([str(x) for x in tax_ids])}' + 
+            f'/dataset_report?filters.assembly_level=complete_genome&' + 
+            f'filters.assembly_source=genbank&tax_exact_match=true&page_size={len(tax_ids)}')
+    success, resp = _multi_attempt_get_request(url)
+    return success, resp.json()['reports'] if success else resp
 
 def get_refseq_dataset_reports_by_taxon(tax_ids):
     '''
@@ -83,11 +107,11 @@ def get_refseq_dataset_reports_by_taxon(tax_ids):
 
     if len(tax_ids) > 1000:
         raise RuntimeError('Too many taxonomy ids specified')
-    resp = get(url=f'{GENOME_ENDPOINT}/taxon/{"%2C".join([str(x) for x in tax_ids])}/dataset_report?filters.assembly_level=complete_genome&filters.assembly_source=refseq&tax_exact_match=true&page_size={len(tax_ids)}', auth=AUTH)
-    # Check if we got a HTTP error
-    resp.raise_for_status()
-    resp = resp.json()
-    return resp['reports']
+    url = (f'{GENOME_ENDPOINT}/taxon/{"%2C".join([str(x) for x in tax_ids])}' + 
+            f'/dataset_report?filters.assembly_level=complete_genome&' + 
+            f'filters.assembly_source=refseq&tax_exact_match=true&page_size={len(tax_ids)}')
+    success, resp = _multi_attempt_get_request(url)
+    return success, resp.json()['reports'] if success else resp
 
 def get_genes_by_id(gene_ids):
     '''
@@ -100,11 +124,10 @@ def get_genes_by_id(gene_ids):
     Returns:
         The zip file in bytes format
     '''
-    # Query NCBI dataset API
-    resp = get(url=f'{GENE_ENDPOINT}/id/{"%2C".join([str(x) for x in gene_ids])}/download?include_annotation_type=FASTA_GENE', auth=AUTH)
-    # Check if we got a HTTP error
-    resp.raise_for_status()
-    return resp.content
+    url = (f'{GENE_ENDPOINT}/id/{"%2C".join([str(x) for x in gene_ids])}' +
+            f'/download?include_annotation_type=FASTA_GENE')
+    success, resp = _multi_attempt_get_request(url)
+    return success, resp.content if success else resp
 
 def get_assembly_by_accession(accessions):
     '''
@@ -117,8 +140,7 @@ def get_assembly_by_accession(accessions):
     Returns:
         The zip file in bytes format
     '''
-    # Query NCBI dataset API
-    resp = get(url=f'{GENOME_ENDPOINT}/accession/{"%2C".join(accessions)}/download?include_annotation_type=GENOME_FASTA', auth=AUTH)
-    # Check if we got a HTTP error
-    resp.raise_for_status()
-    return resp.content
+    url = (f'{GENOME_ENDPOINT}/accession/{"%2C".join(accessions)}' + 
+            f'/download?include_annotation_type=GENOME_FASTA')
+    success, resp = _multi_attempt_get_request(url)
+    return success, resp.content if success else resp
