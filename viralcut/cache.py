@@ -37,6 +37,7 @@ def add_gene(gene_id):
     if cache.exists():
         shutil.rmtree(cache)
     cache.mkdir()
+    return cache
 
 
 def get_gene_seq(gene_id):
