@@ -13,7 +13,7 @@ from requests import get
 from requests.auth import HTTPBasicAuth
 
 GENOME_ENDPOINT = 'https://api.ncbi.nlm.nih.gov/datasets/v2/genome'
-GENE_ENDPOINT = 'https://api.ncbi.nlm.nih.gov/datasets/v2gene'
+GENE_ENDPOINT = 'https://api.ncbi.nlm.nih.gov/datasets/v2/gene'
 AUTH = None
 
 # Check for an NCBI API key saved as an enviroment variable or saved in the users .netrc file
