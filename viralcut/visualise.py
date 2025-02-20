@@ -6,6 +6,18 @@ from .collection import ViralCutCollection
 from ete3.parser.newick import write_newick
 
 def generate_itol_tree(collection: ViralCutCollection):
+    '''
+    This function will take the Viralcut Collection and generate the tree (newick format).
+    It will also generate annotation files for each guide allowing you to interactively 
+    view off-target sources.
+
+    Arguments:
+        collection (Viralcut.Collection): A ViralCut collection the contains the processed guides and phylogentic tree
+
+    Returns:
+        None
+    '''
+
     outputDir = Path('/mnt/ssd1/carl/ViralCut/outputs') # TODO: Replace this with user defined dir
     outputDir.mkdir(exist_ok=True)
 
