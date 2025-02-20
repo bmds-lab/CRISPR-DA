@@ -131,7 +131,6 @@ class ViralCutCollection:
         '''
         Resets the phylogenetic tree using the root tax id
         '''
-        self._ncbi = NCBITaxa()
         self._ncbi_tree = self._ncbi.get_topology(root_tax_id, intermediate_nodes=True)
         self.map_phylogentic_tree()
 
@@ -150,13 +149,6 @@ class ViralCutCollection:
 
         return list(map(int, self.accession_to_tax_id.values()))
 
-    def get_ncbi_tax_tree(self):
-        if self._ncbi_tree is None:
-            self._ncbi_tree = self._ncbi.get_topology(
-                self.get_tax_ids_in_analysis(),
-                intermediate_nodes=True
-            )
-        return self._ncbi_tree
 
     def guides_to_dataframe(self):
         data = {'seq' : []}
@@ -208,76 +200,15 @@ class ViralCutCollection:
 
         return pd.DataFrame(scores)
 
-    def calculate_node_scores(self,
-        guides=None,
-        root_tax_id=None,
-        autosave=True
-    ):
+    def calculate_node_scores(self):
         '''
-        Arguments:
-            autosave (bool): autosave but only if new scores are calculated.
-        
-        
+        After completing the off-target scoring, this method will add the scores to the tree.
+        It will then propergate the scores (by averaging it's children) through the tree.
         '''
-        if root_tax_id is None:
-            root_tax_id = config.ROOT_TAX_ID
-
-        if config.VERBOSE:
-            print(f'Calculating node scores, with root taxonomy ID: {root_tax_id}')
-
-        # tree = self.get_ncbi_tax_tree()
         tree = self._ncbi_tree
+
         if config.VERBOSE:
             print(f'Preparing scores data structure')
-
-
-        # df_accs_to_tax_id = pd.DataFrame(self.accession_to_tax_id.items(), columns=['accession', 'tax_id'])
-        # '''
-        # df_accs_to_tax_id is structured as following:
-        #    |    | accession       |   tax_id |
-        #    |---:|:----------------|---------:|
-        #    |  0 | GCA_000859285.1 |    85708 |
-        #    |  1 | GCA_000886535.1 |    11676 |
-        #    |  2 | GCA_000884175.1 |  1645793 |
-        # '''
-
-
-        # df_scores = self.assembly_scores_to_dataframe()
-        # '''
-        # df_scores is structured as following:
-        #    |    | guide                   | accession       | score_name   | score | unique_sites | total_sites |  tax_id |
-        #    |---:|:------------------------|:----------------|:-------------|------:|-------------:|------------:|--------:|
-        #    |  0 | TACACTAATTCTTTCACACGTGG | GCA_000859285.1 | mit          |   100 |            0 |           0 |   85708 |
-        #    |  1 | TACACTAATTCTTTCACACGTGG | GCA_000886535.1 | mit          |   100 |            0 |           0 |   11676 |
-        #    |  2 | TACACTAATTCTTTCACACGTGG | GCA_000884175.1 | cfd          |   100 |            0 |           0 | 1645793 |
-        # '''
-
-        # df_accs_to_tax_id.set_index('accession')
-
-        # possible_guides = list(set(df_scores['guide']))
-
-        # df_scores.set_index(['accession', 'guide'])
-
-        # df_scores = df_scores.merge(df_accs_to_tax_id, on='accession', how='left')
-        # score_names = ['mit'] #set(df_scores['score_name']):
-
-        # df_scores.set_index(['tax_id', 'score_name', 'guide'], inplace=True)
-        # df_scores.sort_index(inplace=True)
-
-        # # df_scores now looks like:
-        # '''
-        # | (tax_id, score_name, guide)               | accession       |   score |   unique_sites |   total_sites |
-        # |:------------------------------------------|:----------------|--------:|---------------:|--------------:|
-        # | (10243, 'cfd', 'AAACCTAGCCAAATGTACCATGG') | GCA_018595055.1 |       0 |              0 |             0 |
-        # | (10243, 'cfd', 'AAACCTAGCCAAATGTACCATGG') | GCA_900323395.1 |       0 |              0 |             0 |
-        # | (10243, 'cfd', 'AAACCTAGCCAAATGTACCATGG') | GCA_006458985.1 |       0 |              0 |             0 |
-        # '''
-
-        # print('Printing rows with non-zero scores')
-        # print(df_scores[df_scores['score'] > 0])
-
-        # if guides is None:
-        #     guides = possible_guides#[possible_guides[1]]
 
         guides = [y for y, x in self.guides.items() if x.assembly_scores != {}]
 
@@ -285,154 +216,37 @@ class ViralCutCollection:
             n = len(list(tree.traverse(strategy="postorder")))
             print(f'Calculating scores for {n} nodes using depth-first traversal')
 
-        mapped_tree = {}
-
-        # depth_to_node = defaultdict(list)
         for node in tree.traverse("postorder"):
-            # node.score = defaultdict(lambda : {'mit': -1, 'cfd': -1})
-            node.score = defaultdict(lambda : {'mit': [], 'cfd': []})
+            node.score = defaultdict(lambda : {'mit': -1, 'cfd': -1, 'unique_sites': -1, 'total_sites': -1})
             node.scored = False
-            mapped_tree[node.taxid] = node
-        #     dist = tree.get_distance(node)
-        #     depth_to_node[dist].append(node)
-        # depths = [x for x in depth_to_node.keys()]
-        # depths.sort(reverse=True)
-
-        start_time = time.time()
 
         for accession, taxid in self.accession_to_tax_id.items():
-            node = mapped_tree[taxid]
+            node = self.tree_map[str(taxid)]
             for guide in guides:
                 try:
-                    guide_results = self.guides[guide].assembly_scores[accession]
-                    score = guide_results['score']
-                    # node.score[guide][guide_results['score_name']] = score
-                    node.score[guide][guide_results['score_name']].append((accession, score))
-                    # if node.scored:
-                    #     print(f'{taxid} has been scored multiple times')
+                    mit, cfd, unique_sites, total_sites = self.guides[guide].assembly_scores[accession].values()
+                    node.score[guide]['mit'] = float(mit)
+                    node.score[guide]['cfd'] = float(cfd)
+                    node.score[guide]['unique_sites'] = int(unique_sites)
+                    node.score[guide]['total_sites'] = int(total_sites)
                     node.scored = True
-                    # propagate change up the tree to the root
-                    while True:
-                        node = node.up
-                        if node is None:
-                            break
-                        # node.score[guide][guide_results['score_name']] = max(node.score[guide][guide_results['score_name']], score)
-                        node.score[guide][guide_results['score_name']].append((accession, score))
                 except:
                     continue
 
-
-
-        # # 
-        # for d in depths:
-        #     print(d)
-        #     for node in depth_to_node[d]:
-        #         # Leaf
-        #         if len(node.children) == 0:
-        #             continue
-        #         # propergate scores up from children
-        #         else:
-        #             for guide in guides:
-        #                 node.score[guide]['mit'] = max([x.score[guide]['mit'] for x in node.children])
-
-
-
-        # start_time = time.time() 3925.530910253525
-
-        # for d in depths:
-        #     print(d)
-        #     for node in depth_to_node[d]:
-        #         node.score = defaultdict(lambda : {'mit': [], 'cfd': []})
-        #         # Leaf, get score from dataframe
-        #         if len(node.children) == 0:
-        #             for guide in guides:
-        #                 for score_name in config.ISSL_SCORES:
-        #                     try:
-        #                         issl_score = df_scores.loc[(node.taxid, score_name, guide), 'score']
-        #                         node.score[guide][score_name].append(issl_score)
-        #                     except KeyError as e:
-        #                         node.score[guide][score_name].append('?')
-        #         # Get score from children
-        #         else:
-        #             for guide in guides:
-        #                 for score_name in config.ISSL_SCORES:
-        #                     for child in node.children:
-        #                         for s in child.score[guide][score_name]:
-        #                             node.score[guide][score_name].append(s)
-
-        # start_time = time.time()
-
-        # # depth-first traversal 10025.991832017899
-        # new_scores_calculated = False
-        # for score_name in score_names:
-
-        #     for guide in guides:
-        #         key = (score_name, guide)
-        #         if key in self.node_scores_calculated_for_guides:
-        #             print(f'Scores already calculated for: {key}')
-        #             continue
-        #         else:
-        #             self.node_scores_calculated_for_guides.append(
-        #                 key
-        #             )
-        #             new_scores_calculated = True
-
-        #         for idx, i in enumerate(tree.traverse(strategy="postorder")):
-
-        #             if i.name == '':
-        #                 continue
-
-        #             tax_id = int(i.name)
-
-        #             if len(i.children) == 0:
-        #                 # is a leaf so find minimum of assembly scores
-
-        #                 try:
-        #                     scores = df_scores.loc[(tax_id, score_name, guide), 'score']
-        #                     score = scores.sum()
-        #                 except KeyError as e:
-        #                     score = -101
-                            
-                            
-        #                 if score > 0:
-        #                         print(tax_id, score_name, guide, '\n', scores[scores > 0], '\n\n\n')
-                        
-        #                 # propagate change up the tree to the root
-        #                 node = i.up
-        #                 while True:
-        #                     if node is None:
-        #                         break
-                                
-        #                     if hasattr(node, 'score'):
-        #                         node.score = max(
-        #                             node.score,
-        #                             score
-        #                         )
-        #                     else:
-        #                         node.score = score
-
-        #                     #print((
-        #                     #    int(node.name),
-        #                     #    guide,
-        #                     #    score_name
-        #                     #), score)
-        #                     self.node_scores[(
-        #                         int(node.name),
-        #                         guide,
-        #                         score_name
-        #                     )] = score
-                            
-        #                     node = node.up
-                            
-        #                     if node is None:
-        #                         break
-
-        # if autosave and new_scores_calculated:
-        #     self._autoSaveIfPossible()
-        
-        elapsed_time = time.time() - start_time
-        print(elapsed_time)
-        return True
+        guide = guides[0]
+        for node in tree.traverse("postorder"):
+            if node.scored == True:
+                continue
+            elif len(node.children) > 0:
+                scores = [x.score[guide] for x in node.children]
+                mit_score = [x['mit'] for x in scores if x != -1]
+                cfd_score = [x['mit'] for x in scores if x != -1]
+                node.score[guide]['mit'] = sum(mit_score) / len(mit_score)
+                node.score[guide]['cfd'] = sum(cfd_score) / len(cfd_score)
+                node.score[guide]['unique_sites'] = sum([x['unique_sites'] for x in scores if x != -1]) 
+                node.score[guide]['total_sites'] = sum([x['total_sites'] for x in scores if x != -1])
+            else:
+                continue
 
     def get_node_score(self, tax_id, guide, score_name, r=False):
         # have the scores for this guide been calculated?
