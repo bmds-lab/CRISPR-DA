@@ -363,8 +363,6 @@ def get_accession_from_tax_id(tax_ids):
     accession = ['-'] * len(tax_ids)
 
     for i in range(0, len(tax_ids), config.NCBI_BATCH_SIZE):
-        print(f'{i}:{i+config.NCBI_BATCH_SIZE}')
-    for i in range(0, len(tax_ids), config.NCBI_BATCH_SIZE):
         batch = tax_ids[i:i+config.NCBI_BATCH_SIZE]
         # Check GenBank first
         reports = dataset.get_genbank_dataset_reports_by_taxon(batch)
