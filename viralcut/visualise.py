@@ -117,3 +117,29 @@ def generate_itol_tree(collection: ViralCutCollection):
                     while len(lastChild.children) > 0:
                         lastChild = lastChild.children[-1]
                     outFile.write(f'{firstChild.taxid}|{lastChild.taxid},{utils.colour_code(node.score[guide]['cfd'])},{node.score[guide]['cfd']}\n')
+
+
+def generate_treeviewer_tree(collection: ViralCutCollection):
+    '''
+    For testing using treeviewer
+    '''
+    outputDir = Path('/mnt/ssd1/carl/ViralCut/outputs') # TODO: Replace this with user defined dir
+    outputDir.mkdir(exist_ok=True)
+
+    with open(outputDir / 'tree.nwk', 'w') as outFile:
+        outFile.write(write_newick(collection._ncbi_tree))
+
+    taxIdToName = {}
+    for accession, name in zip(collection.accessions, data.get_name_from_accessions(collection.accessions)):
+        taxId = str(collection.accession_to_tax_id[accession])
+        if taxId in taxIdToName:
+            assert(name == taxIdToName[taxId])
+        else:
+            taxIdToName[taxId] =  name
+    leaves = collection._ncbi_tree.get_leaves()
+
+    for guide in [y for y, x in collection.guides.items() if x.assembly_scores != {}]:
+        with open(outputDir / f'{guide}-labels.csv', 'w') as outFile:
+            outFile.write('taxid\ttaxid\tname\tscore\tcolour\n')
+            for leaf in leaves:
+                outFile.write(f'{leaf.taxid}\t{leaf.taxid}\t{taxIdToName[str(leaf.taxid)]}\t{leaf.score[guide]['mit']}\t{utils.letter_code(leaf.score[guide]['mit'])}\n')
