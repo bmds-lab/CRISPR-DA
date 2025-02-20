@@ -86,5 +86,5 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
             with open(resultsFiles[accession], 'r') as fp:
                 lines = fp.readlines()
             lines = [line.strip().split('\t') for line in lines]
-            for guide, mit, cfd, uniqueSites, totalSites in lines:
-                collection[guide].add_assembly_score(accession, mit, cfd, uniqueSites, totalSites)
+            for idx, [_, mit, cfd, uniqueSites, totalSites] in enumerate(lines):
+                collection[guidesToScore[idx]].add_assembly_score(accession, mit, cfd, uniqueSites, totalSites)
