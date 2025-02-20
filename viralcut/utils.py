@@ -37,3 +37,23 @@ def trans_to_dna(rna: str):
 
 def one_hot_encode(seq, z='ATCG'):
     return [list(map(lambda x: 1.0 if x==c else 0.0, z)) for c in seq]
+
+def colour_code(score: float):
+    if score < 25:
+        return '#e06666'
+    elif score < 50:
+        return '#f6b26b'
+    elif score < 75:
+        return '#ffe599'
+    else:
+        return '#93c47d'
+
+def letter_code(score: float):
+    if score < 25:
+        return 'E'
+    elif score < 50:
+        return 'H'
+    elif score < 75:
+        return 'M'
+    else:
+        return 'L'
