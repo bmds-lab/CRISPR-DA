@@ -67,7 +67,7 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
         # For running scoring in multiprocessing mode
         args = []
         for accession in accessions:
-            isslIdx = cache.get_accession_issl_index(accession)
+            isslIdx = cache.get_file(accession, '.issl')
             resultsFile = tmpPath / f'results_{accession}.txt'
             resultsFiles[accession] = resultsFile
             args.append((guidesFile, isslIdx, resultsFile))
