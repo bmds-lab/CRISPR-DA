@@ -4,16 +4,16 @@ data.py
 This file acts as an interface data from the NCBI Datasets v2 REST API (dataset.py) and the local cache (cache.py).
 The main file will make request and this interface will locate the data and perform some transformation.
 '''
-
+import re
+import os
 import json
 import pickle
-import os
 import subprocess
 import multiprocessing
-import re
 import zipfile as zf
-from glob import glob
+from pathlib import Path
 from io import BytesIO, TextIOWrapper
+from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 
 from . import config
 from . import dataset
@@ -21,7 +21,6 @@ from . import cache
 from . import utils
 from .guide import Guide
 from .collection import ViralCutCollection
-
 
 def collection_from_pickle(filename):
     if config.VERBOSE:
