@@ -406,7 +406,9 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
     '''
     tax_ids = []
     for accs in accessions:
-        report = cache.get_assembly_report(accs)
+        reportFile = cache.get_file(accs, 'data_report.json')
+        with open(reportFile, 'r') as inFile:
+            report = json.load(inFile)
         if 'taxId' in report['organism']:
             tax_ids.append(report['organism']['taxId'])
         elif config.VERBOSE:
@@ -425,7 +427,9 @@ def get_name_from_accessions(accessions):
     '''
     names = []
     for accs in accessions:
-        report = cache.get_assembly_report(accs)
+        reportFile = cache.get_file(accs, 'data_report.json')
+        with open(reportFile, 'r') as inFile:
+            report = json.load(inFile)
         if 'taxId' in report['organism']:
             names.append(report['organism']['organismName'])
         elif config.VERBOSE:
