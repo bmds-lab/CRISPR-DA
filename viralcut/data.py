@@ -432,71 +432,51 @@ def get_name_from_accessions(accessions):
             print(f'Could not find taxId of {accs}')
     return names
 
-def get_guides_from_gene(gene_id):
+def extract_guides(id):
     '''
-    This method will extract all the guides from the gene
+    This method will extract all the guides from the gene or accession.
+
+    Arguments:
+        id (str): This either the gene id or accession number.
     
+    Returns:
+        guides list[tuple]: A list of extracted guides containing
+                            A guide object, header, extended 30mer seq, start location and strand
     '''
     pattern_forward = r'(?=([ATCG]{21}GG))'
     pattern_reverse = r'(?=(CC[ACGT]{21}))'
 
     guides = []
-    seqs = cache.get_gene_seq(gene_id)
-    for seq in seqs:
-        for pattern, strand, seqModifier in [
-            [pattern_forward, '+', lambda x : x],
-            [pattern_reverse, '-', lambda x : utils.rc(x)]
-        ]:
-            p = re.compile(pattern)
-            for m in p.finditer(seq):
-                front_offset = 4 if strand == '+' else 3
-                back_offset = 3 if strand == '+' else 4
-                target30 = seqModifier(seq[m.start() - front_offset: m.start() + 23 + back_offset])
-                target23 = target30[4:-3]
-                guides.append((Guide(target23), target30, m.start(), strand))
-
+    with open(cache.get_file(id, '.fna'), 'r') as inFile:
+        for header, seq in utils.parse_fna(inFile):
+            for pattern, strand, seqModifier in [
+                [pattern_forward, '+', lambda x : x],
+                [pattern_reverse, '-', lambda x : utils.rc(x)]
+            ]:
+                p = re.compile(pattern)
+                for m in p.finditer(seq):
+                    front_offset = 4 if strand == '+' else 3
+                    back_offset = 3 if strand == '+' else 4
+                    target30 = seqModifier(seq[m.start() - front_offset: m.start() + 23 + back_offset])
+                    target23 = target30[4:-3]
+                    guides.append((Guide(target23), header, target30, m.start(), strand))
     return guides
 
-
-def get_guides_from_genome(accession):
-    '''
-    This method will extract all the guides from the gene
-    
-    '''
-    pattern_forward = r'(?=([ATCG]{21}GG))'
-    pattern_reverse = r'(?=(CC[ACGT]{21}))'
-
-    guides = []
-    seqs = cache.get_assembly_seq(accession)
-    for seq in seqs:
-        for pattern, strand, seqModifier in [
-            [pattern_forward, '+', lambda x : x],
-            [pattern_reverse, '-', lambda x : utils.rc(x)]
-        ]:
-            p = re.compile(pattern)
-            for m in p.finditer(seq):
-                front_offset = 4 if strand == '+' else 3
-                back_offset = 3 if strand == '+' else 4
-                target30 = seqModifier(seq[m.start() - front_offset: m.start() + 23 + back_offset])
-                target23 = target30[4:-3]
-                guides.append((Guide(target23), target30, m.start(), strand))
-
-    return guides
-
-def create_collection_from_gene(gene_id, guides):
+def create_collection(id, guides):
     ''' this method will take a gene id and guides and create a new viral cut collection'''
     collection = ViralCutCollection()
-    collection.target = ('gene', gene_id)
-    collection.target_properties = cache.get_gene_report(gene_id)
-    for guide, target30, start, strand in guides:
+    collection.target = cache.get_file(id, 'data_report.json')
+    for guide, header, target30, start, strand in guides:
         if guide.seq not in collection:
             collection[guide.seq] = guide
+            collection[guide.seq]['header'] = [header]
             collection[guide.seq]['start'] = [start]
             collection[guide.seq]['end'] = [start + 23]
             collection[guide.seq]['strand'] = [strand]
             collection[guide.seq]['30mer'] = [target30]
             collection[guide.seq]['occurrences'] = 1
         else:
+            collection[guide.seq]['header'].append(header)
             collection[guide.seq]['start'].append(start)
             collection[guide.seq]['end'].append(start + 23)
             collection[guide.seq]['strand'].append(strand)
