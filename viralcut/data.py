@@ -100,10 +100,9 @@ def download_ncbi_genes(gene_ids):
             for header, seq in utils.parse_fna(fp):
                 header_gene_id = get_properties_from_ncbi_fasta_header(header, key='GeneID')
 
-                filename = f"{header_gene_id}.fna"
-                cache_dir = cache.add_gene(header_gene_id)
-                cached_file = os.path.join(cache_dir, filename)
-                cache_data_report = os.path.join(cache_dir, 'data_report.json')
+                cache_dir = cache.add_entry(header_gene_id)
+                cached_file = cache_dir / f'{header_gene_id}.fna'
+                cache_data_report = cache_dir / 'data_report.json'
 
                 with open(cached_file, 'w') as fp:
                     fp.write(f'{header}\n')
@@ -177,28 +176,27 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
                     accs = report['accession']
                     data_report_by_accession[accs] = report
 
-            for path in files:
+            for file in [Path(x) for x in files]:
 
                 # Be selective in which files get cached.
-                accs = os.path.basename(os.path.dirname(path))
-                filename = os.path.basename(path)
-                cache_dir = cache.add_assembly(accs)
-                cached_file = os.path.join(cache_dir, filename)
-                cache_data_report = os.path.join(cache_dir, 'data_report.json')
-
+                accs = file.parent.name
+                filename = file.name
                 if not('GCF' in accs or 'GCA' in accs):
                     continue
+                cache_dir = cache.add_entry(accs)
+                cached_file = cache_dir / filename
+                cache_data_report = cache_dir / 'data_report.json'
 
                 if filename.split('.')[-1] in keep_exts:
 
-                    if not os.path.exists(cached_file):
-                        with zfp.open(path) as fp, open(cached_file, 'wb') as fpW:
+                    if not cached_file.exists():
+                        with zfp.open(str(file)) as fp, open(cached_file, 'wb') as fpW:
                             fpW.writelines(fp.readlines())
 
                         if config.VERBOSE:
                             print(f'Downloaded to: {cached_file}')
 
-                    if not os.path.exists(cache_data_report):
+                    if not cache_data_report.exists():
                         with open(cache_data_report, 'w') as fpW:
                             json.dump(data_report_by_accession[accs], fpW)
 
@@ -304,28 +302,26 @@ def create_issl_indexes(accessions,
 
     # remove accessions if the index already exists
     if not force:
-        accessions = cache.get_missing_issl_index(accessions)
+        accessions = cache.get_missing_files(accessions, '.issl')
 
     args = []
     for accession in accessions:
         commands = []
 
         # For the .fna file associated with the accession
-        fna_path = cache.get_assembly_fna(accession)
-        fna = os.path.basename(fna_path)
-        parent = os.path.pardir
-        ots_file = os.path.join(parent, f"{fna}.offtargets.txt")
-        issl_file = os.path.join(parent, f"{fna}.offtargets.issl")
+        fna_file = cache.get_file(accession, '.fna')
+        ots_file = fna_file.parent / f"{fna_file.stem}_offtargets.txt"
+        issl_file = fna_file.parent / f"{fna_file.stem}.issl"
 
-        if not os.path.exists(ots_file) or force:
+        if (not ots_file.exists()) or force:
             # Extract off-targets
             commands.append([
                 bin_extract,
                 ots_file,
-                fna_path
+                fna_file
             ])
 
-        if not os.path.exists(issl_file) or force:
+        if (not issl_file.exists()) or force:
             # Create ISSL index
             commands.append([
                 bin_issl,
