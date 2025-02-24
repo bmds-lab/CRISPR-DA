@@ -260,17 +260,15 @@ def get_properties_from_ncbi_fasta_header(header, key=None):
             return props[key]
         raise ValueError(f'Could not find `{key}` in header: `{header}`')
 
-
-def _create_issl_index(commands):
+def run_commands(commands):
     success = True
     for cmd in commands:
         try:
-            subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            # subprocess.run(cmd)
+            subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
         except Exception as e:
             if config.VERBOSE:
                 print(f'Failed to run: {" ".join(cmd)}')
-            success &= False
+            success = False
     return success
 
 def create_issl_indexes(accessions,
