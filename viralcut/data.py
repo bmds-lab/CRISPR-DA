@@ -52,13 +52,13 @@ def download_ncbi_genes(gene_ids):
         gene_ids = [int(gene_ids)]
 
     # Some genes may already be cached,
-    genes_to_download = cache.get_missing_genes(gene_ids)
+    genes_to_download = cache.get_missing_files(gene_ids, '.fna')
 
     # which means we may not have anything to download.
     if not len(genes_to_download):
         if config.VERBOSE:
             print('No genes to download')
-        return []
+        return gene_ids
 
     # Notify if only some are being downloaded.
     if config.VERBOSE and len(gene_ids) != len(genes_to_download):
@@ -68,7 +68,7 @@ def download_ncbi_genes(gene_ids):
         ))
 
     # Keep track of which genes were actually downloaded.
-    gene_ids_downloaded = []
+    gene_ids_downloaded = [x for x in gene_ids if x not in genes_to_download]
 
     success, NCBI_gene_files = dataset.get_genes_by_id(genes_to_download)
     if not success:
@@ -138,13 +138,13 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
         accessions = [accessions]
 
     # Some accessions may already be cached,
-    accs_to_download = cache.get_missing_assemblies(accessions)
+    accs_to_download = cache.get_missing_files(accessions, '.fna')
 
     # which means we may not have anything to download.
     if not len(accs_to_download):
         if config.VERBOSE:
             print('No assemblies to download')
-        return []
+        return accessions
 
     # Notify if only some are being downloaded.
     if config.VERBOSE and len(accessions) != len(accs_to_download):
@@ -154,8 +154,7 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
         ))
 
     # Keep track of which accessions were actually downloaded.
-    accessions_downloaded = []
-
+    accessions_downloaded = [x for x in accessions if x not in accs_to_download]
     for start in range(0, len(accs_to_download), config.NCBI_BATCH_SIZE):
 
         success, assembly_files = dataset.get_assembly_by_accession(accs_to_download[start:start+config.NCBI_BATCH_SIZE])
