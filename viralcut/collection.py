@@ -1,6 +1,5 @@
 import json
 import os
-import time
 import pickle
 from collections import defaultdict
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
@@ -18,10 +17,9 @@ CODE_ERROR = '!'
 class ViralCutCollection:
     def __init__(self, _loading_from_pickled=False):
         self.guides: dict[str, Guide] = {}
-        self.target = None
+        self.target = {}
         self.accessions = []
         self.accession_to_tax_id = {}
-        self.target_properties = {}
         self.node_scores_calculated_for_guides = []
         self.node_scores = {} # key: tuple(node, guide, score_name); value: score
         self.tree_map = {}
@@ -124,21 +122,9 @@ class ViralCutCollection:
             None
         '''
         self._ncbi_tree = self._ncbi.get_topology(tax_ids, intermediate_nodes=False)
-        self.map_phylogentic_tree()
-
-
-    def reset_phylogenetic_tree(self, root_tax_id):
-        '''
-        Resets the phylogenetic tree using the root tax id
-        '''
-        self._ncbi_tree = self._ncbi.get_topology(root_tax_id, intermediate_nodes=True)
-        self.map_phylogentic_tree()
-
-    def map_phylogentic_tree(self):
         self.tree_map = {}
         for node in self._ncbi_tree.traverse("postorder"):
             self.tree_map[str(node.taxid)] = node
-
 
     def get_tax_ids_in_analysis(self):
         '''Fetches a list of NCBI taxonomy IDs that exist in the Collection
