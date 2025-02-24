@@ -478,8 +478,7 @@ def create_collection(id, guides):
 
 def get_accession_from_root(root_tax_id):
         ncbi = NCBITaxa()
-        tree = ncbi.get_topology(root_tax_id, intermediate_nodes=True)
-
-        tax_ids = [node['taxid'] for node in tree.traverse("postorder")]
+        tree = ncbi.get_topology([root_tax_id], intermediate_nodes=True)
+        tax_ids = [node.taxid for node in tree.traverse("postorder")]
         accession = get_accession_from_tax_id(tax_ids)
-        return accession
+        return tax_ids, [x for x in accession if x != '-']
