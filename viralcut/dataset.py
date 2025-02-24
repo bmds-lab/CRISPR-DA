@@ -9,6 +9,7 @@ https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/rest-api/
 
 import os
 import netrc
+from time import sleep
 from requests import get
 from requests.auth import HTTPBasicAuth
 
@@ -64,6 +65,7 @@ def _multi_attempt_get_request(url, max_attempts=5):
         except:
             attempts += 1
             print(f'Request failed, retrying (attempt {attempts}/{max_attempts})')
+            sleep(1)
     print(f'Request failed, max attempts exceeded')
     return False, None
 
