@@ -406,7 +406,6 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
             print(f'Could not find taxId of {accs}')
     return tax_ids
 
-
 def get_name_from_accessions(accessions):
     '''Given a list of accessions, return a list of scientific names.
     
@@ -438,8 +437,8 @@ def extract_guides(id):
         guides list[tuple]: A list of extracted guides containing
                             A guide object, header, extended 30mer seq, start location and strand
     '''
-    pattern_forward = r'(?=([ATCG]{21}GG))'
-    pattern_reverse = r'(?=(CC[ACGT]{21}))'
+    pattern_forward = r'(?=([ATCG]{25}GG[ATCG]{3}))'
+    pattern_reverse = r'(?=([ATCG]{3}CC[ACGT]{25}))'
 
     guides = []
     with open(cache.get_file(id, '.fna'), 'r') as inFile:
@@ -450,9 +449,7 @@ def extract_guides(id):
             ]:
                 p = re.compile(pattern)
                 for m in p.finditer(seq):
-                    front_offset = 4 if strand == '+' else 3
-                    back_offset = 3 if strand == '+' else 4
-                    target30 = seqModifier(seq[m.start() - front_offset: m.start() + 23 + back_offset])
+                    target30 = seqModifier(seq[m.start(): m.start() + 30])
                     target23 = target30[4:-3]
                     guides.append((Guide(target23), header, target30, m.start(), strand))
     return guides
