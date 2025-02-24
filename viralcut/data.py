@@ -337,15 +337,16 @@ def create_issl_indexes(accessions,
         args.append(commands)
 
     errors = []
+    args = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]
     if len(args) > 0:
-        args, accessions = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]
+        args, accessions = zip(*args)
         if processors == 1:
             for idx, arg in enumerate(args):
-                if not _create_issl_index(arg):
+                if not run_commands(arg):
                     errors.append(accessions[idx])
         else:
             with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
-                success = p.starmap(_create_issl_index, [[x] for x in args])
+                success = p.starmap(run_commands, [[x] for x in args])
                 errors = [accessions[idx] for idx, result in enumerate(success) if not result]
     return errors
 
