@@ -358,7 +358,7 @@ def get_accession_from_tax_id(tax_ids):
         tax_ids (list): A list of accessions
     
     Returns:
-        A list of tax IDs, '-' indicates that an accession could not be found for tthe given taxon
+        A list of tax IDs, '-' indicates that an accession could not be found for the given taxon
     '''
     accession = ['-'] * len(tax_ids)
 
@@ -370,24 +370,17 @@ def get_accession_from_tax_id(tax_ids):
             raise RuntimeError('Unable to download requested assemblies reports')
         for report in reports:
             accession[i+batch.index(report['organism']['tax_id'])] = report['accession']
-            # accession[report['organism']['tax_id']] = report['accession']
         # Check Refseq for any entries not found in GenBank
         missed_tax_ids = [batch[idx] for idx, val in enumerate(batch) if val == '-']
         if len(missed_tax_ids) < 1:
             continue
-        # missed_tax_ids = [t_id for t_id in batch if t_id not in accession.keys()]
         success, reports = dataset.get_refseq_dataset_reports_by_taxon(missed_tax_ids)
         if not success:
             raise RuntimeError('Unable to download requested assemblies reports')
         for report in reports:
             accession[tax_ids.index(report['organism']['tax_id'])] = report['accession']
-            # accession[report['organism']['tax_id']] = report['accession']
 
     missed_tax_ids = [tax_ids[idx] for idx, val in enumerate(accession) if val == '-']
-    # missed_tax_ids = [t_id for t_id in tax_ids if t_id not in accession.keys()]
-    if len(missed_tax_ids) > 0:
-        print('Missed these boss')
-        print(missed_tax_ids)
 
     return accession
 
