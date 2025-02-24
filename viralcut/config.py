@@ -6,24 +6,13 @@ from importlib import resources
 # present before exporting. 
 NCBI_HUMAN_VIRUSES_TABLE = resources.path('viralcut.resources', 'human_viruses.csv')
 
-
-# The root taxonomy ID used. By default, the viruses superkingdom (ID 10239)
-# is the root.
-ROOT_TAX_ID = 10239
-
 # The directory to write files downloaded from NCBI to
-CACHE = '~./genomes-viruses'
+CACHE = './genomes-viruses'
 
-# When downloading through NCBI Datasets PyLib, the requested URL may be
-# rejected due to exceeding a reasonable length, if too many accessions are 
-# requested at once. To avoid this, downloads will be batched by this size.
-NCBI_ACCESSION_BATCH_SIZE = 100
-
-# When downloading NCBI assemblies, the default cacheing method creates
-# sub-directories named as the first few characters of the accession.
-# Here, specify the number of characters to use.
-# Example: `GCA_000841585.1` is cached in `GCA_000841/GCA_000841585.1`
-CACHE_PREFIX_LENGTH = 10
+# When accessing the NCBI Datasets via the REST API, the requested URL may 
+# rejected due to exceeding a reasonable length. To avoid this, queires 
+# will be batched by this size.
+NCBI_BATCH_SIZE = 100
 
 # Print messages during processing
 VERBOSE = True
@@ -39,4 +28,3 @@ BIN_ISSL_IDX = 'isslCreateIndex'
 
 # Path to the CRISPR site extraction utility available in Crackling
 BIN_EXTRACT = 'extractOfftargets'
-
