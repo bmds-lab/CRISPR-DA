@@ -265,7 +265,7 @@ def run_commands(commands):
             subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
         except Exception as e:
             if config.VERBOSE:
-                print(f'Failed to run: {" ".join(cmd)}')
+                print(f'Failed to run: {" ".join([str(x) for x in cmd])}')
             success = False
     return success
 
