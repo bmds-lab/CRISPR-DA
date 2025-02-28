@@ -1,4 +1,24 @@
+import os
+import shutil
+import pathlib
 import setuptools
+from setuptools.command.install import install
+
+class MyInstall(install):
+    def run(self):
+        cwd = pathlib.Path().absolute()
+        ISSL_dir = cwd / 'viralcut/ISSL'
+        build_dir = ISSL_dir / 'build'
+        build_dir.mkdir(parents=True, exist_ok=True)
+        os.chdir(str(build_dir))
+        self.spawn(['cmake', str(ISSL_dir)])
+        self.spawn(['cmake', '--build', '.'])
+        os.chdir(str(cwd))
+        super().run()
+        os.chdir(str(build_dir))
+        self.spawn(['cmake', '--install', '.', '--prefix', str(cwd / 'viralcut/resources')])
+        os.chdir(str(cwd))
+        shutil.rmtree(str(build_dir))
 
 with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
@@ -23,6 +43,9 @@ setuptools.setup(
         'Programming Language :: Python :: 3',
     ],
     packages=setuptools.find_packages(where='viralcut', exclude=['resources']),
+    cmdclass={
+        'install': MyInstall,
+    },
     python_requires='>=3.8',
     entry_points = {
         'console_scripts': [
