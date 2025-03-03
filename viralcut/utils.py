@@ -3,6 +3,7 @@ utils.py
 
 This file holder various utility methods that are used throughout the project.
 '''
+from datetime import datetime
 
 def parse_fna(stream):
     '''Parse some iterable object as a multi-FASTA file.
@@ -57,3 +58,10 @@ def letter_code(score: float):
         return 'M'
     else:
         return 'L'
+
+# Function that formats provided text with time stamp
+def printer(stringFormat):
+    print('>>> {}:\t{}\n'.format(
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"),
+        stringFormat
+    ))
