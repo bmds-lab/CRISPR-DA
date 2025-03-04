@@ -6,12 +6,17 @@ The main file will make request and this interface will locate the data and perf
 '''
 import re
 import os
+import glob
 import json
+import heapq
+import shutil
 import pickle
+import tempfile
 import subprocess
 import multiprocessing
 import zipfile as zf
 from pathlib import Path
+from importlib import resources
 from io import BytesIO, TextIOWrapper
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 
@@ -19,6 +24,7 @@ from . import config
 from . import dataset
 from . import cache
 from . import utils
+from . import extractOfftargets
 from .guide import Guide
 from .collection import ViralCutCollection
 
@@ -258,31 +264,86 @@ def get_properties_from_ncbi_fasta_header(header, key=None):
             return props[key]
         raise ValueError(f'Could not find `{key}` in header: `{header}`')
 
-def run_commands(commands):
+def extract_offtargets(input, output, max_open_files=1000):
+    try:
+        pattern_forward_offsite = r"(?=([ACGT]{21}[AG]G))"
+        pattern_reverse_offsite = r"(?=(C[CT][ACGT]{21}))"
+        # Create multiprocessing pool
+        # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.starmap
+        tempDir = tempfile.TemporaryDirectory()
+        with open(str(input), 'r') as inFile:
+            for header, seq in utils.parse_fna(inFile):
+                with tempfile.NamedTemporaryFile('w', delete=False, dir=tempDir.name, suffix='_split') as outFile:
+                    outFile.write(f'{header}\n')
+                    outFile.write(f'{seq}\n')
+
+        explodedFiles = [file for file in glob.glob(f'{tempDir.name}/*_split')]
+        for explodedFile in explodedFiles:
+            with open(explodedFile, 'r') as inFile:
+                lines = inFile.readlines()
+            if len(lines) != 2:
+                raise RuntimeError("Error: expected the file to have two lines (>header,seq)")
+            header = lines[0].strip()
+            seq = lines[1].strip()
+            with tempfile.NamedTemporaryFile('w', delete=False, dir=tempDir.name, suffix='_unsorted') as outFile:
+                for strand, pattern, seqModifier in [
+                    ['positive', pattern_forward_offsite, lambda x : x],
+                    ['negative', pattern_reverse_offsite, lambda x : utils.rc(x)]
+                ]:
+                    match_chr = re.findall(pattern, seq)
+                    for i in range(0,len(match_chr)):
+                        outFile.write(f'{seqModifier(match_chr[i])[0:20]}\n')
+
+        for unsortedFile in glob.glob(f'{tempDir.name}/*_unsorted'):
+            with tempfile.NamedTemporaryFile('w', delete=False, dir=tempDir.name, suffix='_sorted') as outFile, open(unsortedFile, 'r') as inFile:
+                lines = inFile.readlines()
+                lines.sort()
+                outFile.writelines(lines)
+
+        sortedFiles = [file for file in glob.glob(f'{tempDir.name}/*_sorted')]
+        while len(sortedFiles) > 1:
+            mergedFile = tempfile.NamedTemporaryFile(delete = False)
+            while True:
+                try:
+                    sortedFilesPointers = [open(file, 'r') for file in sortedFiles[:max_open_files]]
+                    break
+                except OSError as e:
+                    if e.errno == 24:
+                        utils.printer(f'Attempted to open too many files at once (OSError errno 24)')
+                        max_open_files = max(1, int(max_open_files / 2))
+                        utils.printer(f'Reducing the number of files that can be opened by half to {max_open_files}')
+                        continue
+                    raise e
+            with open(mergedFile.name, 'w') as f:
+                f.writelines(heapq.merge(*sortedFilesPointers))
+            for file in sortedFilesPointers:
+                file.close()
+            sortedFiles = sortedFiles[max_open_files:] + [mergedFile.name]
+
+        shutil.move(sortedFiles[0], output)
+        tempDir.cleanup()
+        return True
+    except Exception as e:
+        if config.VERBOSE:
+            print(f'Failed to extract off-targets from: {input}')
+            print(e)
+            return False
+
+def run_command(command):
     success = True
-    for cmd in commands:
-        try:
-            subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
-        except Exception as e:
-            if config.VERBOSE:
-                print(f'Failed to run: {" ".join([str(x) for x in cmd])}')
-            success = False
+    try:
+        subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+    except Exception as e:
+        if config.VERBOSE:
+            print(f'Failed to run: {" ".join([str(x) for x in command])}')
+        success = False
     return success
 
-def create_issl_indexes(accessions,
-    bin_extract=None,
-    bin_issl=None,
-    force=False,
-    processors=0
-):
+def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
     '''Extract offtargets and create ISSL index for each FNA file in the provided accession
 
     Arguments:
         accessions (list):     A list of accessions to process
-        bin_extract (string):  A path to the extractOfftargets utility available in Crackling.
-                               Set in configuration.
-        bin_issl (string):     A path to the isslCreateIndex binary from Crackling.
-                               Set in configuration.
         force (bool):          Rerun even if their output files already exist
 
     Returns:
@@ -293,12 +354,11 @@ def create_issl_indexes(accessions,
     if isinstance(accessions, str):
         accessions = [accessions]
 
-    # Set defaults
-    if bin_extract is None:
-        bin_extract = config.BIN_EXTRACT
+    with resources.path('viralcut.resources', 'slice-10-37.txt') as resource:
+        sliceFile = resource
 
-    if bin_issl is None:
-        bin_issl = config.BIN_ISSL_IDX
+    with resources.path('viralcut.resources', 'ISSLCreateIndex') as resource:
+        isslCreateIndexBin = resource
 
     # remove accessions if the index already exists
     if not force:
@@ -306,45 +366,57 @@ def create_issl_indexes(accessions,
 
     args = []
     for accession in accessions:
-        commands = []
-
-        # For the .fna file associated with the accession
-        fna_file = cache.get_file(accession, '.fna')
-        ots_file = fna_file.parent / f"{fna_file.stem}_offtargets.txt"
-        issl_file = fna_file.parent / f"{fna_file.stem}.issl"
-
-        if (not ots_file.exists()) or force:
+        fnaFile = cache.get_file(accession, '.fna')
+        offtargetFile = fnaFile.parent / f"{fnaFile.stem}_offtargets.txt"
+        if (not offtargetFile.exists()) or force:
             # Extract off-targets
-            commands.append([
-                bin_extract,
-                ots_file,
-                fna_file
+            args.append([
+                fnaFile,
+                offtargetFile,
+                100
             ])
 
-        if (not issl_file.exists()) or force:
-            # Create ISSL index
-            commands.append([
-                bin_issl,
-                ots_file,
-                '20',
-                '8',
-                issl_file
-            ])
-        args.append(commands)
-
-    errors = []
+    extractOfftargetErrors = []
     args = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]
     if len(args) > 0:
         args, accessions = zip(*args)
         if processors == 1:
             for idx, arg in enumerate(args):
-                if not run_commands(arg):
-                    errors.append(accessions[idx])
+                if not extract_offtargets(*arg):
+                    extractOfftargetErrors.append(accessions[idx])
         else:
-            with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
-                success = p.starmap(run_commands, [[x] for x in args])
-                errors = [accessions[idx] for idx, result in enumerate(success) if not result]
-    return errors
+            with multiprocessing.Pool(processors) as p:
+                success = p.starmap(extract_offtargets, args)
+                extractOfftargetErrors = [accessions[idx] for idx, result in enumerate(success) if not result]
+
+    args = []
+    for accession in accessions:
+        fnaFile = cache.get_file(accession, '.fna')
+        offtargetFile = fnaFile.parent / f"{fnaFile.stem}_offtargets.txt"
+        isslIndexFile = fnaFile.parent / f"{fnaFile.stem}.issl"
+        if (not isslIndexFile.exists()) or force:
+            # Create ISSL index
+            args.append([
+                isslCreateIndexBin,
+                offtargetFile,
+                sliceFile,
+                '20',
+                isslIndexFile
+            ])
+
+    buildISSLIndexErrors = []
+    args = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]
+    if len(args) > 0:
+        args, accessions = zip(*args)
+        if processors == 1:
+            for idx, arg in enumerate(args):
+                if not run_command(arg):
+                    buildISSLIndexErrors.append(accessions[idx])
+        else:
+            with multiprocessing.Pool(processors) as p:
+                success = p.starmap(run_command, [[x] for x in args])
+                buildISSLIndexErrors = [accessions[idx] for idx, result in enumerate(success) if not result]
+    return extractOfftargetErrors + buildISSLIndexErrors
 
 
 def get_accession_from_tax_id(tax_ids):
