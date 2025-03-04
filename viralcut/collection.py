@@ -1,18 +1,12 @@
-import json
 import os
+import json
 import pickle
+import pandas as pd
 from collections import defaultdict
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
-from ete3.parser.newick import read_newick, write_newick
-import pandas as pd
 
 from . import config
 from .guide import Guide
-
-CODE_ACCEPTED = 1
-CODE_REJECTED = 0
-CODE_UNKNOWN = '?'
-CODE_ERROR = '!'
 
 class ViralCutCollection:
     def __init__(self, _loading_from_pickled=False):
@@ -25,7 +19,6 @@ class ViralCutCollection:
         self.tree_map = {}
         self._ncbi = NCBITaxa()
         self._ncbi_tree = None
-        self._ncbi_tree_newick = None
         self._pickle_filepath = None
         print('ViralCutCollection.__init__ finished')
 
@@ -78,8 +71,6 @@ class ViralCutCollection:
         self._ncbi = NCBITaxa()
         self._ncbi_tree = None
         self._ncbi_tree = self.get_ncbi_tax_tree()
-        
-        
 
     def _autoSaveIfPossible(self):
         did_auto_save = False
@@ -125,66 +116,6 @@ class ViralCutCollection:
         self.tree_map = {}
         for node in self._ncbi_tree.traverse("postorder"):
             self.tree_map[str(node.taxid)] = node
-
-    def get_tax_ids_in_analysis(self):
-        '''Fetches a list of NCBI taxonomy IDs that exist in the Collection
-
-        Returns:
-            A list of integers
-        '''
-
-        return list(map(int, self.accession_to_tax_id.values()))
-
-
-    def guides_to_dataframe(self):
-        data = {'seq' : []}
-        all_props = set()
-
-        for g in self.guides:
-            for prop in self.guides[g].props:
-                all_props.add(prop)
-            
-            data['seq'].append(g)
-        
-            for prop in all_props:
-                if prop not in data:
-                    data[prop] = []
-        
-                if prop in self.guides[g].props:
-                    data[prop].append(self.guides[g].props[prop])
-                else:
-                    data[prop].append(CODE_UNKNOWN)
-        
-        return pd.DataFrame(data)
-
-    def assembly_scores_to_dataframe(self):
-        '''This function takes the assembly scores of each guide (dict of lists) and merges them
-        into one data structure (dict of lists). Adding the extract column for the guide identity is
-        needed. The DataFrame will look something like:
-
-        > guide        accession score_name       score unique_sites total_sites
-        > 0  TACACTAATTCTTTCACACGTGG  GCA_000859285.1        mit  100.000000     0.000000    0.000000
-        > 1  TACACTAATTCTTTCACACGTGG  GCA_000886535.1        mit  100.000000     0.000000    0.000000
-        > 2  TACACTAATTCTTTCACACGTGG  GCA_000884175.1        cfd  100.000000     0.000000    0.000000
-
-
-        Returns:
-            A DataFrame
-        '''
-
-        scores = {'guide' : []}
-
-        # for guide in self.guides:
-
-        #     for k in self.guides[guide].assembly_scores:
-        #         if k not in scores:
-        #             scores[k] = []
-
-        #         scores[k] += self.guides[guide].assembly_scores[k]
-
-        #     scores['guide'] += [guide] * len(self.guides[guide].assembly_scores[k])
-
-        return pd.DataFrame(scores)
 
     def calculate_node_scores(self):
         '''
@@ -234,110 +165,6 @@ class ViralCutCollection:
             else:
                 continue
 
-    def get_node_score(self, tax_id, guide, score_name, r=False):
-        # have the scores for this guide been calculated?
-        # if not, calculate them now
-
-        key = (tax_id, guide, score_name)
-        #print(key)
-        try:
-            s = 10_000 / (100.0 + self.node_scores[key])
-            #print('got score')
-            print(key, s)
-            return s
-        except KeyError as e:
-            print('key error when getting node score')
-            pass
-
-        scores_for_guide_have_been_calculated = (score_name, guide) in self.node_scores_calculated_for_guides
-
-        if r:
-            # already been recursively called. if we have reached here,
-            # then the score really doesn't exist.
-            print('get_node_score really couldn\'t find a score')
-            return 0
-
-        if not scores_for_guide_have_been_calculated:
-            print('get_node_score is calling for scores to be calculated')
-            self.calculate_node_scores(guides=[guide])
-            return self.get_node_score(tax_id, guide, score_name, r=True)
-        
-        return -1
-
-
-    def get_descendant_tax_ids_from_root_tax_id(self, tax_id=None, max_depth=None, max_nodes=None, include_level_zero=True):
-        '''Given some taxonomy ID, find the taxonomy IDs of descendant nodes
-
-        Arguments:
-            root_tax_id (int): The root tax_id. Optional. default is config.ROOT_TAX_ID
-
-        Returns:
-            A list of tax IDS
-
-        '''
-
-        tree = self._ncbi_tree
-        include_nodes = set()
-        depth_offset = 0
-
-        found_tax_id_in_tree = False
-        if tax_id is not None:
-            include_nodes.update([tax_id])
-
-            # a tax_id has been specified, first find it
-            for idx, i in enumerate(tree.traverse(strategy="levelorder")):
-                if int(i.name) == tax_id:
-                    found_tax_id_in_tree = True
-                    print(f'updating root of tree from {tree.name} to {i.name}')
-                    tree = i
-                    depth_offset = len(i.get_ancestors()) - 1
-                    break
-
-            if not      found_tax_id_in_tree:
-                print(f'Could not find tax_id {tax_id} in the tree')
-                return [tax_id]
-
-        for idx, i in enumerate(tree.traverse(strategy="levelorder")):
-            depth = len(i.get_ancestors()) - 1 - depth_offset
-
-            doBreak = False
-            doBreak |= (max_nodes is not None and len(include_nodes) > max_nodes)
-            doBreak |= (max_depth is not None and depth > max_depth)
-
-            if doBreak:
-                break
-
-            doAdd = i.up is not None
-            doAdd &= (
-                (include_level_zero and depth >= 0) or
-                (not include_level_zero and depth > 0)
-            )
-            if doAdd:
-                #print(f'depth is {depth}')
-                include_nodes.update([
-                    int(node.name)
-                    for node in i.up.children
-                ])
-
-        return list(include_nodes)
-
-    def generate_newick_string_from_tax_ids(self, tax_ids):
-        '''This function generates Newick string of the data needed to visualise the
-        phylogenetic tree in a web browser. See https://en.wikipedia.org/wiki/Newick_format
-
-        Arguments:
-            tax_ids (list):  The taxonomy IDs to include in the tree
-
-        Returns:
-            A Newick string
-        '''
-
-        return write_newick(
-            self._ncbi.get_topology(
-                tax_ids
-            )
-        )
-
     def to_pickle(self, filename):
         # Some parts of the Collection cannot be Pickled.
         # They will be removed then regenerated when Unpickled.
@@ -352,30 +179,65 @@ class ViralCutCollection:
         with open(filename, 'wb') as fp:
             pickle.dump(self, fp)
 
-    def to_human_readable_files(self, filename):
-        df_guides = self.guides_to_dataframe()
+    def output_results(self, output_dir):
+
+        target23 = []
+        target30 = []
+        header = []
+        strand = []
+        pos = []
+        CDE_score = []
+        CDE_range = []
+        CDE_iqr = []
+        CDE_passed = []
+
+        for guide in self.guides.values():
+            for i in range(len(guide['30mer'])):
+                target23.append(guide.seq)
+                target30.append(guide['30mer'][i])
+                CDE_score.append(guide['CDE_score'][i])
+                CDE_range.append(guide['CDE_UQ_range'][i])
+                CDE_iqr.append(guide['CDE_UQ_IQR'][i])
+                CDE_passed.append(guide['CDE_passed'][i])
+                header.append(guide['header'][i])
+                strand.append(guide['strand'][i])
+                pos.append(f"{guide['start'][i]}:{guide['end'][i]}")
+
+        ontarget_results = pd.DataFrame({
+            'guide': target23,
+            '30mer': target30,
+            'header': header, 
+            'pos': pos,
+            'strand': strand,
+            'CDE_score': CFDScore, 
+            'CDE_range': CFDScore, 
+            'CDE_iqr': CFDScore, 
+            'CDE_passed': CFDScore
+            })
+
+        target23 = []
+        accession = []
+        CFDScore = []
+        MITScore = []
+        totalSites = []
+        uniqueSites = []
+
+        # Convert tree to dataframe for comparisons
+        for guide in self.guides.values():
+            for acc, score in guide.assembly_scores.items():
+                target23.append(guide.seq)
+                accession.append(acc)
+                MITScore.append(score['mit'])
+                CFDScore.append(score['cfd'])
+                totalSites.append(score['total_sites'])
+                uniqueSites.append(score['unique_sites'])
         
-        df_assembly_scores = self.assembly_scores_to_dataframe()
-        
-        df_node_scores = pd.DataFrame(self.node_scores).T
-
-        with open(f"{filename}-guides.csv", "w") as fp:
-            df_guides.to_csv(fp, index=False)
-
-        with open(f"{filename}-guides.md", "w") as fp:
-            df_guides.to_markdown(fp, index=False)
-
-        with open(f"{filename}-gene-properties.txt", "w") as fp:
-            fp.write(
-                json.dumps(
-                    self.gene_properties,
-                    sort_keys=True,
-                    indent=4
-                )
-            )
-
-        with open(f"{filename}-assembly-scores.csv", "w") as fp:
-            df_assembly_scores.to_csv(fp, index=False)
-
-        with open(f"{filename}-node-scores.csv", "w") as fp:
-            df_node_scores.to_csv(fp, index=False)
+        offtarget_results = pd.DataFrame({
+            'guide': target23, 
+            'accession': accession, 
+            'MIT score': MITScore, 
+            'CFD score': CFDScore, 
+            'total_sites': totalSites, 
+            'unique_sites': uniqueSites
+            })
+        offtarget_results['tax_id'] = offtarget_results['accession'].apply(lambda x : self.accession_to_tax_id[x])
