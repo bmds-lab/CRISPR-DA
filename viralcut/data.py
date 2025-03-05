@@ -328,16 +328,6 @@ def extract_offtargets(input, output, max_open_files=1000):
             print(e)
             return False
 
-def run_command(command):
-    success = True
-    try:
-        subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
-    except Exception as e:
-        if config.VERBOSE:
-            print(f'Failed to run: {" ".join([str(x) for x in command])}')
-        success = False
-    return success
-
 def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
     '''Extract offtargets and create ISSL index for each FNA file in the provided accession
 
@@ -409,11 +399,11 @@ def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
         args, accessions = zip(*args)
         if processors == 1:
             for idx, arg in enumerate(args):
-                if not run_command(arg):
+                if not utils.run_command(arg):
                     buildISSLIndexErrors.append(accessions[idx])
         else:
             with multiprocessing.Pool(processors) as p:
-                success = p.starmap(run_command, [[x] for x in args])
+                success = p.starmap(utils.run_command, [[x] for x in args])
                 buildISSLIndexErrors = [accessions[idx] for idx, result in enumerate(success) if not result]
     return extractOfftargetErrors + buildISSLIndexErrors
 

@@ -4,6 +4,9 @@ utils.py
 This file holder various utility methods that are used throughout the project.
 '''
 from datetime import datetime
+import subprocess
+
+from . import config
 
 def parse_fna(stream):
     '''Parse some iterable object as a multi-FASTA file.
@@ -65,3 +68,13 @@ def printer(stringFormat):
         datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"),
         stringFormat
     ))
+
+def run_command(command):
+    success = True
+    try:
+        subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+    except Exception as e:
+        if config.VERBOSE:
+            print(f'Failed to run: {" ".join([str(x) for x in command])}')
+        success = False
+    return success
