@@ -24,7 +24,6 @@ from . import config
 from . import dataset
 from . import cache
 from . import utils
-from . import extractOfftargets
 from .guide import Guide
 from .collection import ViralCutCollection
 
@@ -354,7 +353,7 @@ def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
     if isinstance(accessions, str):
         accessions = [accessions]
 
-    with resources.path('viralcut.resources', 'slice-10-37.txt') as resource:
+    with resources.path('viralcut.resources', 'slice-4-5.txt') as resource:
         sliceFile = resource
 
     with resources.path('viralcut.resources', 'ISSLCreateIndex') as resource:
