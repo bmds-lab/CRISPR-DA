@@ -8,7 +8,7 @@ Notes
     - NCBI Gene ID for SARS-CoV-2 spike or surface glycroprotein (S) gene is 43740568
 '''
 
-from viralcut.score import run_analysis
+from viralcut import run_analysis
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ def main():
     viruses = pd.read_csv('viruses.csv')
     accessions = list(viruses['Assembly'].head(number_viruses))
 
-    gc, scores = run_analysis(gene_id, accessions)
+    gc, scores = run_analysis(target_gene_id=gene_id, evaluation_accessions=accessions)
     
     print(gc.to_dataframe())
     print(pd.DataFrame(scores))
