@@ -69,10 +69,10 @@ def printer(stringFormat):
         stringFormat
     ))
 
-def run_command(command):
+def run_command(command, std_out=subprocess.DEVNULL, std_err=subprocess.DEVNULL):
     success = True
     try:
-        subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+        subprocess.run(command,stdout=std_out,stderr=std_err,check=True)
     except Exception as e:
         if config.VERBOSE:
             print(f'Failed to run: {" ".join([str(x) for x in command])}')
