@@ -16,7 +16,7 @@ from . import cache
 from . import utils
 from .collection import ViralCutCollection
 
-def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors=0):
+def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors=os.cpu_count()):
     '''Runs ISSL off-target scoring for the list of guides against each provided accession.
 
     Arguments:
@@ -59,7 +59,7 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
                     errors.append(accession)
         # Begin scoring - multi-processor mode
         else:
-            with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
+            with multiprocessing.Pool(processors) as p:
                 success = p.starmap(utils.run_command, args)
                 errors = [accessions[idx] for idx, result in enumerate(success) if not result]
 
