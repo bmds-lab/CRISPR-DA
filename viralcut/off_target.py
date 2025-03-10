@@ -7,38 +7,14 @@ Crackling can be found here: https://github.com/bmds-lab/Crackling
 '''
 
 import os
-import subprocess
 import multiprocessing
 from pathlib import Path
+from importlib import resources
 from tempfile import TemporaryDirectory
 
 from . import cache
-from . import config
+from . import utils
 from .collection import ViralCutCollection
-
-def _run_issl_score(path_guides, path_issl_index, path_results):
-    '''
-    Runs ISSL off-target scoring with the given arguments.
-    This is used to run scoring using mulitple processors.
-
-    Arguments:
-        path_guides (path_like str): The file that contains the guides to be scored
-        path_issl_index (path_like str): The ISSL index file
-        path_results (path_like str): The output file, where the results will be stored
-    
-    Returns: None
-    '''
-    # assume the index exists and there is only one.
-    with open(path_results, 'w') as outFile:
-        subprocess.run([
-            config.BIN_ISSL_SCORE,
-            path_issl_index,
-            path_guides,
-            '4',
-            '0',
-            'and'
-        ], stdout=outFile)
-
 
 def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors=0):
     '''Runs ISSL off-target scoring for the list of guides against each provided accession.
@@ -52,6 +28,9 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
     '''
     # Only process guides that were selected as efficient by on-target scoring
     guidesToScore = [g for g in collection if True in collection[g]['CDE_passed']]
+
+    with resources.path('viralcut.resources', 'ISSLScoreOfftargets') as resource:
+        isslScoreOfftargetsBin = resource
 
     # Create temporary working dir
     with TemporaryDirectory() as tmpDir:
@@ -70,16 +49,19 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
             isslIdx = cache.get_file(accession, '.issl')
             resultsFile = tmpPath / f'results_{accession}.txt'
             resultsFiles[accession] = resultsFile
-            args.append((guidesFile, isslIdx, resultsFile))
+            args.append([[isslScoreOfftargetsBin, isslIdx, guidesFile, '4', '0', 'and'], resultsFile])
 
+        errors = []
         # Begin scoring - single processor mode
         if processors == 1:
-            for guideFile, isslIdx,  resultsFile in args:
-                _run_issl_score(guideFile, isslIdx, resultsFile)
+            for (command, stdOut), accession in zip(args,accessions):
+                if not utils.run_command(command, stdOut):
+                    errors.append(accession)
         # Begin scoring - multi-processor mode
         else:
             with multiprocessing.Pool(os.cpu_count() if not processors else processors) as p:
-                p.starmap(_run_issl_score, args)
+                success = p.starmap(utils.run_command, args)
+                errors = [accessions[idx] for idx, result in enumerate(success) if not result]
 
         # Add results to ViralCutCollection
         for accession in accessions:
