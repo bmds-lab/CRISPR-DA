@@ -36,6 +36,22 @@ target_include_directories(ISSLScoreOfftargets PUBLIC
                           "${PROJECT_SOURCE_DIR}/include"
                           )
 
+# NOTE: This version was created to simply report off-targets for results section
+#       REMOVE later                          
+add_executable(ISSLGetOfftargets ISSLGetOfftargets.cpp)
+target_link_libraries(ISSLGetOfftargets PUBLIC 
+                     tutorial_compiler_flags 
+                     OpenMP::OpenMP_CXX
+                     Boost::boost 
+                     Boost::iostreams
+                     penalties
+                     )
+
+target_include_directories(ISSLGetOfftargets PUBLIC
+                           "${PROJECT_BINARY_DIR}"
+                           "${PROJECT_SOURCE_DIR}/include"
+                           )
+
 # install(TARGETS tutorial_compiler_flags DESTINATION lib)
 
 set(include_dirs 
@@ -45,5 +61,5 @@ set(include_dirs
    )
 # install(DIRECTORY ${include_dirs} DESTINATION include)
 
-set(installable_bins ISSLCreateIndex ISSLScoreOfftargets)
+set(installable_bins ISSLCreateIndex ISSLScoreOfftargets ISSLGetOfftargets)
 install(TARGETS ${installable_bins} DESTINATION .)
