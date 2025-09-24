@@ -150,18 +150,18 @@ class ViralCutCollection:
                 except:
                     continue
 
-        guide = guides[0]
         for node in tree.traverse("postorder"):
             if node.scored == True:
                 continue
             elif len(node.children) > 0:
-                scores = [x.score[guide] for x in node.children]
-                mit_score = [x['mit'] for x in scores if x != -1]
-                cfd_score = [x['mit'] for x in scores if x != -1]
-                node.score[guide]['mit'] = sum(mit_score) / len(mit_score)
-                node.score[guide]['cfd'] = sum(cfd_score) / len(cfd_score)
-                node.score[guide]['unique_sites'] = sum([x['unique_sites'] for x in scores if x != -1]) 
-                node.score[guide]['total_sites'] = sum([x['total_sites'] for x in scores if x != -1])
+                for guide in guides:
+                    scores = [x.score[guide] for x in node.children]
+                    mit_score = [x['mit'] for x in scores if x != -1]
+                    cfd_score = [x['cfd'] for x in scores if x != -1]
+                    node.score[guide]['mit'] = sum(mit_score) / len(mit_score)
+                    node.score[guide]['cfd'] = sum(cfd_score) / len(cfd_score)
+                    node.score[guide]['unique_sites'] = sum([x['unique_sites'] for x in scores if x != -1]) 
+                    node.score[guide]['total_sites'] = sum([x['total_sites'] for x in scores if x != -1])
             else:
                 continue
 
