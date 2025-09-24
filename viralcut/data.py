@@ -371,7 +371,7 @@ def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
         args, accessions = zip(*args)
         if processors == 1:
             for idx, arg in enumerate(args):
-                if not extract_offtargets(*arg):
+                if not extract_offtargets_mp(*arg):
                     extractOfftargetErrors.append(accessions[idx])
         else:
             with multiprocessing.Pool(processors) as p:
@@ -385,13 +385,13 @@ def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
         isslIndexFile = fnaFile.parent / f"{fnaFile.stem}.issl"
         if (not isslIndexFile.exists()) or force:
             # Create ISSL index
-            args.append([
-                isslCreateIndexBin,
-                offtargetFile,
-                sliceFile,
+            args.append([' '.join([
+                str(isslCreateIndexBin),
+                str(offtargetFile),
+                str(sliceFile),
                 '20',
-                isslIndexFile
-            ])
+                str(isslIndexFile)
+            ])])
 
     buildISSLIndexErrors = []
     args = [(arg, acc) for arg, acc in zip(args, accessions) if len(arg) > 0]

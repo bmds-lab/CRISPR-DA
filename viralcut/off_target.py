@@ -49,7 +49,7 @@ def run_offtarget_scoring(collection: ViralCutCollection, accessions, processors
             isslIdx = cache.get_file(accession, '.issl')
             resultsFile = tmpPath / f'results_{accession}.txt'
             resultsFiles[accession] = resultsFile
-            args.append([[isslScoreOfftargetsBin, isslIdx, guidesFile, '4', '0', 'and'], resultsFile])
+            args.append([f'{isslScoreOfftargetsBin} {isslIdx} {guidesFile} 4 0 and', resultsFile])
 
         errors = []
         # Begin scoring - single processor mode

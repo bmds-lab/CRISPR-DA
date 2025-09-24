@@ -76,7 +76,7 @@ def run_command(command, std_out=subprocess.DEVNULL, std_err=subprocess.DEVNULL)
                 std_out = open(std_out, 'w')
             if std_err != subprocess.DEVNULL:
                 std_err = open(std_err, 'w')    
-            subprocess.run(command, check=True, stdout=std_out, stderr=std_err)
+            subprocess.run(command, shell=True, check=True, stdout=std_out, stderr=std_err)
             if std_out != subprocess.DEVNULL:
                 std_out.close()
             if std_err != subprocess.DEVNULL:
