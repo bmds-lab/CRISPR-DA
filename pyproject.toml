@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crispr_da"
-version = "0.0.10"
+version = "0.0.11"
 authors = [
   { name="Carl Schmitz"},
   { name="Jake Bradford"},
@@ -36,11 +36,6 @@ Homepage = "https://biomedicaldatascience.com/index.html"
 Repository = "https://github.com/bmds-lab/crispr-da.git"
 Issues = "https://github.com/bmds-lab/crispr-da/issues"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["crispr_da", "crispr_da.utils"]  
-exclude = ["ISSL*", "resources*"]
-namespaces = false
 
 [project.scripts]
 crispr_da = "crispr_da.utils.cli:main"
