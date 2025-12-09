@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crispr_da"
-version = "0.0.11"
+version = "0.0.13"
 authors = [
-  { name="Carl Schmitz"},
-  { name="Jake Bradford"},
-  { name="Dimitri Perrin", email="dimitri.perrin@qut.edu.au"}
+  { name="Carl Schmitz" },
+  { name="Jake Bradford" },
+  { name="Dimitri Perrin" },
+  { name="Dimitri Perrin", email="dimitri.perrin@qut.edu.au" }
 ]
 description = "For designing CRISPR-Cas9 sgRNA when many genomes are to be considered."
 readme = "README.md"
@@ -36,6 +37,14 @@ Homepage = "https://biomedicaldatascience.com/index.html"
 Repository = "https://github.com/bmds-lab/crispr-da.git"
 Issues = "https://github.com/bmds-lab/crispr-da/issues"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["crispr_da", "crispr_da.utils"]  
+exclude = ["ISSL*", "resources*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+crispr_da = ["resources/*", "../ISSL/**"]
 
 [project.scripts]
 crispr_da = "crispr_da.utils.cli:main"
