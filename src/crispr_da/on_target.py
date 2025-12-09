@@ -40,11 +40,11 @@ def run_CRISPR_DeepEnsemble(collection, score_threshold=0.7, uncertainty_thresho
     # UQ = Uncertainty Quantification 
 
     # Load deep ensemble from resources
-    with resources.path('crisprda.resources', 'CRISPR_DeepEnsemble.zip') as model:
+    with resources.path('crispr_da.resources', 'CRISPR_DeepEnsemble.zip') as model:
         ensemble = CRISPR_DeepEnsemble.RegressionDeepEnsemble(load_from=model)
 
     # Convert threshold percent to threshold value
-    with resources.path('crisprda.resources', 'trainingResults.pkl') as trainingResults:
+    with resources.path('crispr_da.resources', 'trainingResults.pkl') as trainingResults:
         trainingResults = pd.read_pickle(trainingResults)
     UQ_threshold = np.quantile(trainingResults["range"].to_numpy(), [uncertainty_threshold], interpolation="nearest")
 

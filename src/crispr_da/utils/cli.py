@@ -2,7 +2,7 @@ import argparse
 
 import pandas as pd
 
-from crisprda.score import run_analysis
+from crispr_da import run_analysis
 
 def main():
     parser = argparse.ArgumentParser(

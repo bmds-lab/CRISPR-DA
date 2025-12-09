@@ -29,7 +29,7 @@ def run_offtarget_scoring(collection: CRISPRDACollection, accessions, processors
     # Only process guides that were selected as efficient by on-target scoring
     guidesToScore = [g for g in collection if True in collection[g]['CDE_passed']]
 
-    with resources.path('crisprda.resources', 'ISSLScoreOfftargets') as resource:
+    with resources.path('crispr_da.resources', 'ISSLScoreOfftargets') as resource:
         isslScoreOfftargetsBin = resource
 
     # Create temporary working dir

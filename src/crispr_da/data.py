@@ -423,10 +423,10 @@ def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
     if isinstance(accessions, str):
         accessions = [accessions]
 
-    with resources.path('crisprda.resources', 'slice-4-5.txt') as resource:
+    with resources.path('crispr_da.resources', 'slice-4-5.txt') as resource:
         sliceFile = resource
 
-    with resources.path('crisprda.resources', 'ISSLCreateIndex') as resource:
+    with resources.path('crispr_da.resources', 'ISSLCreateIndex') as resource:
         isslCreateIndexBin = resource
 
     # remove accessions if the index already exists
