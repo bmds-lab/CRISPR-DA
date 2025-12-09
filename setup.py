@@ -7,7 +7,7 @@ from setuptools.command.install import install
 class MyInstall(install):
     def run(self):
         cwd = pathlib.Path().absolute()
-        ISSL_dir = cwd / 'crispr-da/ISSL'
+        ISSL_dir = cwd / 'crisprda/ISSL'
         build_dir = ISSL_dir / 'build'
         build_dir.mkdir(parents=True, exist_ok=True)
         os.chdir(str(build_dir))
@@ -16,7 +16,7 @@ class MyInstall(install):
         os.chdir(str(cwd))
         super().run()
         os.chdir(str(build_dir))
-        self.spawn(['cmake', '--install', '.', '--prefix', str(cwd / 'crispr-da/resources')])
+        self.spawn(['cmake', '--install', '.', '--prefix', str(cwd / 'crisprda/resources')])
         os.chdir(str(cwd))
         shutil.rmtree(str(build_dir))
 
@@ -42,14 +42,14 @@ setuptools.setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
     ],
-    packages=setuptools.find_packages(where='crispr-da', exclude=['resources']),
+    packages=setuptools.find_packages(where='crisprda', exclude=['resources']),
     cmdclass={
         'install': MyInstall,
     },
-    python_requires='>=3.8',
+    python_requires='>=3.12',
     entry_points = {
         'console_scripts': [
-            'crispr-da=crispr-da.utils.cli:main'
+            'crisprda=crisprda.utils.cli:main'
         ],
     },
     include_package_data=True,
