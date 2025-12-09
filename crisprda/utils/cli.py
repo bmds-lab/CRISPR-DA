@@ -2,7 +2,7 @@ import argparse
 
 import pandas as pd
 
-from viralcut.score import run_analysis
+from crisprda.score import run_analysis
 
 def main():
     parser = argparse.ArgumentParser(
