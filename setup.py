@@ -7,7 +7,7 @@ from setuptools.command.install import install
 class MyInstall(install):
     def run(self):
         cwd = pathlib.Path().absolute()
-        ISSL_dir = cwd / 'viralcut/ISSL'
+        ISSL_dir = cwd / 'crispr-da/ISSL'
         build_dir = ISSL_dir / 'build'
         build_dir.mkdir(parents=True, exist_ok=True)
         os.chdir(str(build_dir))
@@ -16,7 +16,7 @@ class MyInstall(install):
         os.chdir(str(cwd))
         super().run()
         os.chdir(str(build_dir))
-        self.spawn(['cmake', '--install', '.', '--prefix', str(cwd / 'viralcut/resources')])
+        self.spawn(['cmake', '--install', '.', '--prefix', str(cwd / 'crispr-da/resources')])
         os.chdir(str(cwd))
         shutil.rmtree(str(build_dir))
 
@@ -24,16 +24,16 @@ with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='viralcut',
+    name='crispr-da',
     version='0.0.1',
     author='Jake Bradford, Dimitri Perrin',
     author_email='dimitri.perrin qut edu au',
     description='For designing CRISPR-Cas9 sgRNA when many viral genomes are to be considered.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/bmds-lab/ViralCut',
+    url='https://github.com/bmds-lab/crispr-da',
     project_urls={
-        'Bug Tracker': 'https://github.com/bmds-lab/ViralCut/issues',
+        'Bug Tracker': 'https://github.com/bmds-lab/crispr-da/issues',
         'Lab website': 'http://biomedicaldatascience.com/'
     },
     classifiers=[
@@ -42,14 +42,14 @@ setuptools.setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
     ],
-    packages=setuptools.find_packages(where='viralcut', exclude=['resources']),
+    packages=setuptools.find_packages(where='crispr-da', exclude=['resources']),
     cmdclass={
         'install': MyInstall,
     },
     python_requires='>=3.8',
     entry_points = {
         'console_scripts': [
-            'ViralCut=viralcut.utils.cli:main'
+            'crispr-da=crispr-da.utils.cli:main'
         ],
     },
     include_package_data=True,
