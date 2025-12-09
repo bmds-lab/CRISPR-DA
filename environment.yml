@@ -1,0 +1,9 @@
+name: crispr-da
+channels:
+  - main
+  - nodefaults
+dependencies:
+  - python==3.12
+  - cmake==3.31.2
+  - boost==1.82.0
+  - make==4.2.1 # NOTE: Feel free to change this to your preferred build system
