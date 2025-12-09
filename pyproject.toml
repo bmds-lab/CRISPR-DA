@@ -6,10 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "crispr_da"
 version = "0.0.13"
 authors = [
-  { name="Carl Schmitz" },
-  { name="Jake Bradford" },
-  { name="Dimitri Perrin" },
-  { name="Dimitri Perrin", email="dimitri.perrin@qut.edu.au" }
+  { name="Carl Schmitz, Jake Bradford, Dimitri Perrin", email="dimitri.perrin@qut.edu.au" }
 ]
 description = "For designing CRISPR-Cas9 sgRNA when many genomes are to be considered."
 readme = "README.md"
