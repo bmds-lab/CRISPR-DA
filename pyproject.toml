@@ -44,4 +44,4 @@ namespaces = false
 crispr_da = ["resources/*", "../ISSL/**"]
 
 [project.scripts]
-crispr_da = "crispr_da.utils.cli:main"
+crispr_da = "crispr_da.scripts.cli:main"
