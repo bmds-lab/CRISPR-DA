@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crispr_da"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
   { name="Carl Schmitz"},
   { name="Jake Bradford"},
@@ -41,3 +41,6 @@ where = ["src"]
 include = ["crispr_da*"]  
 exclude = ["resources*"]
 namespaces = false
+
+[project.scripts]
+crispr_da = "crispr_da.utils.cli:main"
