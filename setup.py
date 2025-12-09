@@ -56,6 +56,8 @@ setuptools.setup(
     package_data={'': ['data/*']},
     install_requires=[
        'ncbi-datasets-pylib>=13.22.0',
-       'pandas>=1.4.1'
+       'pandas>=1.4.1',
+       'ete3>=3.1.3',
+       'requests>=2.32.5'
     ]
 )
