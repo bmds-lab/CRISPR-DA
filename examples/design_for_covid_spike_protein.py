@@ -8,7 +8,7 @@ Notes
     - NCBI Gene ID for SARS-CoV-2 spike or surface glycroprotein (S) gene is 43740568
 '''
 
-from viralcut import run_analysis
+from crisprda import run_analysis
 
 import pandas as pd
 
