@@ -28,5 +28,5 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://biomedicaldatascience.com/index.html"
-Repository = "https://github.com/bmds-lab/crispr-da"
+Repository = "https://github.com/bmds-lab/crispr-da.git"
 Issues = "https://github.com/bmds-lab/crispr-da/issues"
