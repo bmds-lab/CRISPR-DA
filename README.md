@@ -1,18 +1,18 @@
-# ViralCut
-CRISPR-Cas9 sgRNA design across many viral genomes
+# CRISPR-DA
+CRISPR-Cas9 sgRNA design across many genomes
 
 ## Installation
 
 1. Clone the repository from GitHub
 
    ```
-   git clone https://github.com/bmds-lab/ViralCut
+   git clone https://github.com/bmds-lab/CRISPR-DA
    ```
    
 2. Install using pip
 
    ```
-   cd ViralCut
+   cd CRISPR-DA
    python3.8 -m pip install -e .
    ```
    
@@ -25,15 +25,15 @@ CRISPR-Cas9 sgRNA design across many viral genomes
 
 ## Utilities
 
-### ViralCut CLI
+### CRISPR-DA CLI
 
 #### Usage
 
    ```
-$ ViralCut --help
-usage: ViralCut [-h] -g GENEID -a ACCESSIONS [ACCESSIONS ...] [-o OUTPUT]
+$ CRISPR_DA --help
+usage: CRISPR_DA [-h] -g GENEID -a ACCESSIONS [ACCESSIONS ...] [-o OUTPUT]
 
-ViralCut: for designing CRISPR-Cas9 sgRNA when many viral genomes are to be considered.
+CRISPR-DA: for designing CRISPR-Cas9 sgRNA when many genomes are to be considered.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -49,7 +49,7 @@ optional arguments:
 #### Example
 
    ```
-   $ ViralCut -g 43740568 -a GCA_000820495.2 GCA_000838265.1 -o spike
+   $ CRISPR_DA -g 43740568 -a GCA_000820495.2 GCA_000838265.1 -o spike
    ```
 
 Output file `spike-guides.md` (minimised for this readme):
