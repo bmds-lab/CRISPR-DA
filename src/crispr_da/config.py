@@ -1,30 +1,57 @@
-from importlib import resources
+from importlib.resources import files, as_file
+from configparser import ConfigParser
+from subprocess import run, DEVNULL
+from pathlib import Path
+import shutil
+import os
 
-# The 'NCBI Genome Information by Organism' table is a good way to obtain a filtered list of
-# NCBI accessions. This method parses the CSV file that is provided when clicking 'Download' on
-# this page https://www.ncbi.nlm.nih.gov/genome/browse/. Please ensure the 'Assembly' column is
-# present before exporting. 
-NCBI_HUMAN_VIRUSES_TABLE = resources.path('crispr_da.resources', 'human_viruses.csv')
+def secure_config_opener(path, flags):
+    return os.open(path, flags, 0o600)
 
-# The directory to write files downloaded from NCBI to
-CACHE = './genomes-viruses'
+# TODO: Add more verbose print statements
+def run_config(force=False):
+    # Build ISSL bin
+    with as_file(files('crispr_da').joinpath('resources')) as fp:
+        resource_dir = fp
+    createIndexBin = resource_dir / 'ISSLCreateIndex'
+    getOfftargetsBin = resource_dir / 'ISSLGetOfftargets'
+    scoreOfftargetsBin = resource_dir / 'ISSLScoreOfftargets'
 
-# When accessing the NCBI Datasets via the REST API, the requested URL may 
-# rejected due to exceeding a reasonable length. To avoid this, queires 
-# will be batched by this size.
-NCBI_BATCH_SIZE = 100
+    if (not (createIndexBin.exists() and getOfftargetsBin.exists() and scoreOfftargetsBin.exists())) or force:
+        print("Bin files missing, running build")
 
-# Print messages during processing
-VERBOSE = True
+        with as_file(files('crispr_da').joinpath('ISSL')) as fp:
+            ISSL_dir = fp
+        build_dir = ISSL_dir / 'build'
+        build_dir.mkdir(parents=True, exist_ok=True)
+        # TODO: Capture output for error logging
+        run(f"cmake -B {build_dir} -S {ISSL_dir}", shell=True, check=True, stdout=DEVNULL, stderr=DEVNULL)
+        run(f"cmake --build {build_dir}", shell=True, check=True, stdout=DEVNULL, stderr=DEVNULL)
+        run(f"cmake --install {build_dir} --prefix {resource_dir}", shell=True, check=True, stdout=DEVNULL, stderr=DEVNULL)
+        shutil.rmtree(str(build_dir))
 
-# The consensus value used in Crackling
-CONSENSUS_N = 2
+    # Get config.ini
+    configFile = Path.home() / ".crispr-da-config.ini"
+    config = ConfigParser()
+    config.read(configFile)
+    if 'Main' not in config.sections():
+        config.add_section('Main')
+    # Set cache location
+    print('Enter a new value or hit enter to use the value in the sqaure brackets')
+    cacheLocation = input(f'Cache location [{config.get('Main', 'Cache', fallback='')}]: ')
+    if len(cacheLocation) > 0:
+        config.set('Main','Cache', cacheLocation)
+    
+    # Set bactch size
+    batchSizeNCBI = input(f'NCBI API request batch size (Recommended - 100) [{config.get('Main', 'NCBIBatchSize', fallback='')}]: ')
+    if len(batchSizeNCBI) > 0:
+        config.set('Main','NCBIBatchSize', batchSizeNCBI)
 
-# Path to the ISSL scoring binary
-BIN_ISSL_SCORE = 'isslScoreOfftargets'
 
-# Path to the ISSL indexing binary
-BIN_ISSL_IDX = 'isslCreateIndex'
+    # TODO: Move NCBI API key here (save to hidden file or keep as export)
 
-# Path to the CRISPR site extraction utility available in Crackling
-BIN_EXTRACT = 'extractOfftargets'
+    # Export update config
+    oldMask = os.umask(0)
+    with open(configFile, 'w', opener=secure_config_opener) as outFile:
+        config.write(outFile)
+    os.umask(oldMask)
