@@ -36,7 +36,7 @@ Issues = "https://github.com/bmds-lab/crispr-da/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["crispr_da", "crispr_da.utils"]  
+include = ["crispr_da", "crispr_da.scripts"]  
 exclude = ["ISSL*", "resources*"]
 namespaces = false
 
