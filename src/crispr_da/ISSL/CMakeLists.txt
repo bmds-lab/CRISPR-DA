@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.8)
 project(ISSL_offtarget_scoring VERSION 1.0)
 
 find_package(OpenMP REQUIRED)
-find_package(Boost REQUIRED COMPONENTS iostreams)
+find_package(Boost CONFIG REQUIRED COMPONENTS iostreams)
 
 add_library(tutorial_compiler_flags INTERFACE)
 target_compile_features(tutorial_compiler_flags INTERFACE cxx_std_17)
