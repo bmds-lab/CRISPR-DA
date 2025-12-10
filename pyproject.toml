@@ -41,7 +41,7 @@ exclude = ["ISSL*", "resources*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-crispr_da = ["resources/*", "../ISSL/**"]
+crispr_da = ["resources/*", "ISSL/**"]
 
 [project.scripts]
 crispr_da = "crispr_da.scripts.cli:main"
