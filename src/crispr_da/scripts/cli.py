@@ -16,7 +16,7 @@ def main():
     onTarget.add_argument('--target_accession', action='store', default=None, dest='target_accession')
     onTarget.add_argument('--target_gene_id', action='store', default=None, dest='target_gene_id')
     offTarget = analysisParser.add_mutually_exclusive_group(required=True)
-    offTarget.add_argument('--evaluation_accessions', action='store', default=None, dest='evaluation_accessions')
+    offTarget.add_argument('--evaluation_accessions', nargs='+', action='store', default=None, dest='evaluation_accessions')
     offTarget.add_argument('--evaluation_root_tax_id', action='store', default=None, dest='evaluation_root_tax_id')
 
     args = parser.parse_args()
