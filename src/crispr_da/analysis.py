@@ -23,7 +23,7 @@ from . import visualise
 from .collection import CRISPRDACollection
 
 def run_analysis(target_accession = None, target_gene_id = None,  evaluation_accessions = None, evaluation_root_tax_id = None):
-    '''Run pan-viral sgRNA design
+    '''Run pan-genome sgRNA design
 
     Arguments:
         target_accession (string):          The NCBI accession to target.

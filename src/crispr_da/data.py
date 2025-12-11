@@ -585,7 +585,7 @@ def extract_guides(id):
     return guides
 
 def create_collection(id, guides):
-    ''' this method will take a gene id and guides and create a new viral cut collection'''
+    ''' this method will take a gene id and guides and create a new CRISPR-DA collection'''
     collection = CRISPRDACollection()
     collection.target = cache.get_file(id, 'data_report.json')
     for guide, header, target30, start, strand in guides:
