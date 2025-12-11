@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crispr_da"
-version = "0.0.14"
+version = "0.0.15"
 authors = [
   { name="Carl Schmitz, Jake Bradford, Dimitri Perrin", email="dimitri.perrin@qut.edu.au" }
 ]
