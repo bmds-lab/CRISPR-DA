@@ -44,8 +44,8 @@ def run_analysis(target_accession = None, target_gene_id = None,  evaluation_acc
         print("Please provide either a list of accessions OR a taxon id for the root of the phylogentic tree to evaluate against")
         exit(-1)
 
-    if config.VERBOSE:
-        print('Downloading target sequence')
+    
+    print('Downloading target sequence')
     if target_gene_id:
         target = data.download_ncbi_genes([target_gene_id])
     elif target_accession:
@@ -55,20 +55,17 @@ def run_analysis(target_accession = None, target_gene_id = None,  evaluation_acc
         raise RuntimeError('There should only be one target sequence')
     target = target[0]
 
-    if config.VERBOSE:
-        print('Extracting guides')
+    print('Extracting guides')
     guides = data.extract_guides(target)
 
-    if config.VERBOSE:
-        print('Creating CRISPRDACollection')
+    print('Creating CRISPRDACollection')
     collection = data.create_collection(target, guides)
 
     if evaluation_root_tax_id:
         evaluation_tax_ids, evaluation_accessions = data.get_accession_from_root(evaluation_root_tax_id)
 
     collection.accessions =  evaluation_accessions
-    if config.VERBOSE:
-        print('Downloading assemblies')
+    print('Downloading assemblies')
     data.download_ncbi_assemblies(collection.accessions)
 
     if evaluation_accessions:
@@ -81,19 +78,15 @@ def run_analysis(target_accession = None, target_gene_id = None,  evaluation_acc
     }
 
     # Create ISSL indexes for the downloaded accessions
-    if config.VERBOSE:
-        print('Generating ISSL indexes')
+    print('Generating ISSL indexes')
     data.create_issl_indexes(evaluation_accessions)
 
     # Evaluate on-target efficiency via Crackling    
-    if config.VERBOSE:
-        print('Evaluating efficiency')
+    print('Evaluating efficiency')
     on_target.run_CRISPR_DeepEnsemble(collection, uncertainty_threshold=0.90)
-    on_target.run_crackling_on_target(collection)
 
     # Do off-target scoring
-    if config.VERBOSE:
-        print('Assessing off-target risk')
+    print('Assessing off-target risk')
     off_target.run_offtarget_scoring(collection, evaluation_accessions)
 
     # Calculate node scores
@@ -101,8 +94,7 @@ def run_analysis(target_accession = None, target_gene_id = None,  evaluation_acc
 
     visualise.generate_itol_tree(collection)
 
-    if config.VERBOSE:
-        print('Done.')
+    print('Done.')
     
     return collection
 

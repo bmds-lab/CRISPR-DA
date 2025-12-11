@@ -21,7 +21,7 @@ from importlib import resources
 from io import BytesIO, TextIOWrapper
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 import traceback
-from . import config
+from .config import get_config
 from . import dataset
 from . import cache
 from . import utils
@@ -29,15 +29,13 @@ from .guide import Guide
 from .collection import CRISPRDACollection
 
 def collection_from_pickle(filename):
-    if config.VERBOSE:
-        print(f'Loading CRISPRDACollection from: {filename}')
+    print(f'Loading CRISPRDACollection from: {filename}')
 
     collection = CRISPRDACollection()
     with open(filename, 'rb') as fp:
         collection = pickle.load(fp)
 
-    if config.VERBOSE:
-        print('Setting autosave path')
+    print('Setting autosave path')
     collection._pickle_filepath = filename
 
     print('Loaded')
@@ -62,12 +60,11 @@ def download_ncbi_genes(gene_ids):
 
     # which means we may not have anything to download.
     if not len(genes_to_download):
-        if config.VERBOSE:
-            print('No genes to download')
+        print('No genes to download')
         return gene_ids
 
     # Notify if only some are being downloaded.
-    if config.VERBOSE and len(gene_ids) != len(genes_to_download):
+    if len(gene_ids) != len(genes_to_download):
         print((
             f'{len(gene_ids) - len(genes_to_download)} of {len(gene_ids)} requested exist in the '
             f'cache already.'
@@ -117,8 +114,7 @@ def download_ncbi_genes(gene_ids):
                 with open(cache_data_report, 'w') as fpW:
                     json.dump(data_report_by_gene_id[header_gene_id], fpW)
 
-                if config.VERBOSE:
-                    print(f'Downloaded to: {cache_dir}')
+                print(f'Downloaded to: {cache_dir}')
 
                 gene_ids_downloaded.append(header_gene_id)
 
@@ -147,12 +143,11 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
 
     # which means we may not have anything to download.
     if not len(accs_to_download):
-        if config.VERBOSE:
-            print('No assemblies to download')
+        print('No assemblies to download')
         return accessions
 
     # Notify if only some are being downloaded.
-    if config.VERBOSE and len(accessions) != len(accs_to_download):
+    if len(accessions) != len(accs_to_download):
         print((
             f'{len(accessions) - len(accs_to_download)} of {len(accessions)} '
             f'requested exist in the cache already.'
@@ -160,9 +155,9 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
 
     # Keep track of which accessions were actually downloaded.
     accessions_downloaded = [x for x in accessions if x not in accs_to_download]
-    for start in range(0, len(accs_to_download), config.NCBI_BATCH_SIZE):
+    for start in range(0, len(accs_to_download), int(get_config('NCBIBatchSize'))):
 
-        success, assembly_files = dataset.get_assembly_by_accession(accs_to_download[start:start+config.NCBI_BATCH_SIZE])
+        success, assembly_files = dataset.get_assembly_by_accession(accs_to_download[start:start+int(get_config('NCBIBatchSize'))])
         if not success:
             raise RuntimeError('Unable to download requested assemblies')
         # Process the downloaded data without writing it to disk, yet.
@@ -199,15 +194,13 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
                         with zfp.open(str(file)) as fp, open(cached_file, 'wb') as fpW:
                             fpW.writelines(fp.readlines())
 
-                        if config.VERBOSE:
-                            print(f'Downloaded to: {cached_file}')
+                        print(f'Downloaded to: {cached_file}')
 
                     if not cache_data_report.exists():
                         with open(cache_data_report, 'w') as fpW:
                             json.dump(data_report_by_accession[accs], fpW)
 
-                        if config.VERBOSE:
-                            print(f'Downloaded to: {cache_data_report}')
+                        print(f'Downloaded to: {cache_data_report}')
 
                     accessions_downloaded.append(accs)
 
@@ -324,10 +317,9 @@ def extract_offtargets(input, output, max_open_files=1000):
         tempDir.cleanup()
         return True
     except Exception as e:
-        if config.VERBOSE:
-            print(f'Failed to extract off-targets from: {input}')
-            print(e)
-            return False
+        print(f'Failed to extract off-targets from: {input}')
+        print(e)
+        return False
 
 def extract_offtarges_processing_node(input: Path):
     pattern_forward_offsite = r"(?=([ACGT]{21}[AG]G))"
@@ -402,11 +394,10 @@ def extract_offtargets_mp(input, output, max_open_files=1000, threads=os.cpu_cou
             os.unlink(file)
         return True
     except Exception as e:
-        if config.VERBOSE:
-            print(f'Failed to extract off-targets from: {input}')
-            print(traceback.format_exc())
-            print(e)
-            return False
+        print(f'Failed to extract off-targets from: {input}')
+        print(traceback.format_exc())
+        print(e)
+        return False
 
 def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
     '''Extract offtargets and create ISSL index for each FNA file in the provided accession
@@ -499,8 +490,8 @@ def get_accession_from_tax_id(tax_ids):
     '''
     accession = ['-'] * len(tax_ids)
 
-    for i in range(0, len(tax_ids), config.NCBI_BATCH_SIZE):
-        batch = tax_ids[i:i+config.NCBI_BATCH_SIZE]
+    for i in range(0, len(tax_ids), int(get_config('NCBIBatchSize'))):
+        batch = tax_ids[i:i+int(get_config('NCBIBatchSize'))]
         # Check GenBank first
         success, reports = dataset.get_genbank_dataset_reports_by_taxon(batch)
         if not success:
@@ -539,7 +530,7 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
             report = json.load(inFile)
         if 'taxId' in report['organism']:
             tax_ids.append(report['organism']['taxId'])
-        elif config.VERBOSE:
+        else:
             print(f'Could not find taxId of {accs}')
     return tax_ids
 
@@ -559,7 +550,7 @@ def get_name_from_accessions(accessions):
             report = json.load(inFile)
         if 'taxId' in report['organism']:
             names.append(report['organism']['organismName'])
-        elif config.VERBOSE:
+        else:
             print(f'Could not find taxId of {accs}')
     return names
 

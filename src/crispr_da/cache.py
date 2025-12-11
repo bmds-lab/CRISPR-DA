@@ -8,7 +8,7 @@ The cache is simply a folder that contains the files downloaded from the NCBI Da
 import shutil
 from pathlib import Path
 
-from . import config
+from .config import get_config
 
 def add_entry(id: str):
     '''
@@ -21,7 +21,7 @@ def add_entry(id: str):
     Returns:
     None
     '''
-    cache = Path(config.CACHE) / id
+    cache = Path(get_config('Cache')) / id
     if cache.exists():
         shutil.rmtree(cache)
     cache.mkdir()
@@ -37,7 +37,7 @@ def remove_entry(id: str):
     Returns:
     None
     '''
-    cache = Path(config.CACHE) / id
+    cache = Path(get_config('Cache')) / id
     shutil.rmtree(cache)
 
 def get_missing_entires(ids: list[str]):
@@ -50,7 +50,7 @@ def get_missing_entires(ids: list[str]):
     Returns:
     missing (list[str]): The ids that do not have folders in the cache
     '''
-    cache = Path(config.CACHE)
+    cache = Path(get_config('Cache'))
     cache_misses = []
     for id in ids:
         if not (cache / id).exists():
@@ -70,7 +70,7 @@ def get_file(id: str, fileExtension: str):
     Returns:
     file (Path): The path object of the file
     '''
-    cache = Path(config.CACHE) / id
+    cache = Path(get_config('Cache')) / id
     files = [x for x in cache.glob(f'*{fileExtension}')]
     if len(files) == 0:
         raise RuntimeError(f'Could not file ending with {fileExtension} in entry {id}')

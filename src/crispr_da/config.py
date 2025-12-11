@@ -5,11 +5,23 @@ from pathlib import Path
 import shutil
 import os
 
+configFile = Path.home() / ".crispr-da-config.ini"
+config = ConfigParser()
+config.read(configFile)
+
+def get_config(option):
+    global config
+    try:
+        return config.get('Main', option)
+    except:
+        raise RuntimeError(f"Failed to get option '{option}' from config")
+
 def secure_config_opener(path, flags):
     return os.open(path, flags, 0o600)
 
 # TODO: Add more verbose print statements
 def run_config(force=False):
+    global config, configFile
     # Build ISSL bin
     with as_file(files('crispr_da').joinpath('resources')) as fp:
         resource_dir = fp
@@ -31,9 +43,6 @@ def run_config(force=False):
         shutil.rmtree(str(build_dir))
 
     # Get config.ini
-    configFile = Path.home() / ".crispr-da-config.ini"
-    config = ConfigParser()
-    config.read(configFile)
     if 'Main' not in config.sections():
         config.add_section('Main')
     # Set cache location
@@ -55,3 +64,7 @@ def run_config(force=False):
     with open(configFile, 'w', opener=secure_config_opener) as outFile:
         config.write(outFile)
     os.umask(oldMask)
+    
+    # Reload config file
+    config = ConfigParser()
+    config.read(configFile)
