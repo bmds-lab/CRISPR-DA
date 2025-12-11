@@ -94,6 +94,11 @@ def run_analysis(target_accession = None, target_gene_id = None,  evaluation_acc
 
     visualise.generate_itol_tree(collection)
 
+    # TODO: Refine and move this to its own section
+    print(f'accession,{",".join([guide for guide in collection.guides])}')
+    for accession in collection.accessions:
+        print(f'{accession},{",".join([f"({",".join(list(collection.guides[guide].assembly_scores[accession].values())[:2])})" if len(collection.guides[guide].assembly_scores) > 0 else '(-1,-1)' for guide in collection.guides])}')
+
     print('Done.')
     
     return collection
