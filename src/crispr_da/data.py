@@ -353,46 +353,48 @@ def extract_offtargets_mp(input, output, max_open_files=1000, threads=os.cpu_cou
     try:
         # Create multiprocessing pool
         # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.starmap
-        tempDir = Path('/mnt/ssd1/carl/ViralCut/cross_genome/tmp')
-        with open(str(input), 'r') as inFile:
-            for header, seq in utils.parse_fna(inFile):
-                with tempfile.NamedTemporaryFile('w', delete=False, dir=tempDir.name, suffix='_split') as outFile:
-                    outFile.write(f'{header}\n')
-                    outFile.write(f'{seq}\n')
-
-        pool = multiprocessing.Pool(threads)
-
-        explodedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_split')]
-        pool.starmap(extract_offtarges_processing_node, explodedFiles)
-
-        unsortedFile = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_unsorted')]
-        pool.starmap(extract_offtarges_sorting_node, unsortedFile)
         
-        sortedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_sorted')]
-        while len(sortedFiles) > 1:
-            mergedFile = tempfile.NamedTemporaryFile(delete = False)
-            while True:
-                try:
-                    sortedFilesPointers = [open(file, 'r') for file in sortedFiles[:max_open_files]]
-                    break
-                except OSError as e:
-                    if e.errno == 24:
-                        utils.printer(f'Attempted to open too many files at once (OSError errno 24)')
-                        max_open_files = max(1, int(max_open_files / 2))
-                        utils.printer(f'Reducing the number of files that can be opened by half to {max_open_files}')
-                        continue
-                    raise e
-            with open(mergedFile.name, 'w') as f:
-                f.writelines(heapq.merge(*sortedFilesPointers))
-            for file in sortedFilesPointers:
-                file.close()
-            sortedFiles = sortedFiles[max_open_files:] + [mergedFile.name]
+        with tempfile.TemporaryDirectory() as td:
+            tempDir = Path(td)
+            with open(str(input), 'r') as inFile:
+                for header, seq in utils.parse_fna(inFile):
+                    with tempfile.NamedTemporaryFile('w', delete=False, dir=tempDir.name, suffix='_split') as outFile:
+                        outFile.write(f'{header}\n')
+                        outFile.write(f'{seq}\n')
 
-        shutil.move(sortedFiles[0], output)
-        # tempDir.cleanup()
-        for file in tempDir.glob('*'):
-            os.unlink(file)
-        return True
+            pool = multiprocessing.Pool(threads)
+
+            explodedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_split')]
+            pool.starmap(extract_offtarges_processing_node, explodedFiles)
+
+            unsortedFile = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_unsorted')]
+            pool.starmap(extract_offtarges_sorting_node, unsortedFile)
+            
+            sortedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_sorted')]
+            while len(sortedFiles) > 1:
+                mergedFile = tempfile.NamedTemporaryFile(delete = False)
+                while True:
+                    try:
+                        sortedFilesPointers = [open(file, 'r') for file in sortedFiles[:max_open_files]]
+                        break
+                    except OSError as e:
+                        if e.errno == 24:
+                            utils.printer(f'Attempted to open too many files at once (OSError errno 24)')
+                            max_open_files = max(1, int(max_open_files / 2))
+                            utils.printer(f'Reducing the number of files that can be opened by half to {max_open_files}')
+                            continue
+                        raise e
+                with open(mergedFile.name, 'w') as f:
+                    f.writelines(heapq.merge(*sortedFilesPointers))
+                for file in sortedFilesPointers:
+                    file.close()
+                sortedFiles = sortedFiles[max_open_files:] + [mergedFile.name]
+
+            shutil.move(sortedFiles[0], output)
+            # tempDir.cleanup()
+            for file in tempDir.glob('*'):
+                os.unlink(file)
+            return True
     except Exception as e:
         print(f'Failed to extract off-targets from: {input}')
         print(traceback.format_exc())
