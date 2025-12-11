@@ -4,7 +4,7 @@ from crispr_da import run_analysis
 from crispr_da.config import run_config
 
 def main():
-    parser = argparse.ArgumentParser(prog="crispr_da", description='CRISPR-DA: for designing CRISPR-Cas9 sgRNA when many genomes are to be considered.')
+    parser = argparse.ArgumentParser(prog="crispr_da", description='CRISPR-DA: gRNA design for detection assays.')
     parser.add_argument('-v', '--version', help="Print CRISPR-DA version", action='version', version=f'%(prog)s version {importlib.metadata.version('crispr_da')}')
     subParsers = parser.add_subparsers(dest='command', title='subcommands')
 

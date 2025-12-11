@@ -8,7 +8,7 @@ version = "0.0.18"
 authors = [
   { name="Carl Schmitz, Jake Bradford, Dimitri Perrin", email="dimitri.perrin@qut.edu.au" }
 ]
-description = "For designing CRISPR-Cas9 sgRNA when many genomes are to be considered."
+description = "Adapting CRISPR gRNA design for detection assays."
 readme = "README.md"
 requires-python = ">=3.12"
 classifiers = [
