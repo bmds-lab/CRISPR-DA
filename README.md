@@ -8,7 +8,7 @@ Adapting CRISPR gRNA design for detection assays.
 ## Licence
 BSD 3-Clause "New" or "Revised" License
 
-See `LICENCE` and https://opensource.org/license/BSD-3-Clause for more details
+See `LICENCE` and https://opensource.org/license/BSD-3-Clause for more details.
 
 ## Dependencies
 
@@ -17,7 +17,7 @@ See `LICENCE` and https://opensource.org/license/BSD-3-Clause for more details
 
 2. Download and install [Anaconda](https://www.anaconda.com/download).
 
-3. Setup conda enviroment using .
+3. Setup conda enviroment.
    ```
    conda env create -f <path/to/downloaded/environment.yml>
    ```
@@ -32,7 +32,7 @@ NOTE: You can replace Make with whichever build system you like (E.g. [Ninja](ht
 
 ## Installation
 
-### From [PyPi](https://pypi.org/project/torch/) using pip (Recommended)
+### From [PyPi](https://pypi.org/project/crispr-da/) using pip (Recommended)
 1. Install using pip.
    ```
    pip install crispr-da
@@ -93,10 +93,10 @@ NOTE: You can replace Make with whichever build system you like (E.g. [Ninja](ht
 
 Expected output format (minimised for this readme):
 
-| accession       | TACACTAATTCTTTCACACGTGG | CTCAGTTTTACATTCAACTCAGG | CTTTCTTTTCCAATGTTACTTGG | TTCCATGCTATACATGTCTCTG |
-|:----------------|:------------------------|:------------------------|:------------------------|:-----------------------|
-| GCA_000820495.2 | (100.0, 100.0)          | (100.0, 100.0)          | (100.0, 100.0)          | (100.0, 100.0)         |
-| GCA_000838265.1 | (100.0, 100.0)          | (100.0, 100.0)          | (100.0, 100.0)          | (100.0, 100.0)         |
+| accession       | TACACTAATTCTTTCACACGTGG |  ...  | CTTTCTTTTCCAATGTTACTTGG |
+|:----------------|:------------------------|:------|:------------------------|
+| GCA_000820495.2 | (100.0, 100.0)          |  ...  | (100.0, 100.0)          |
+| GCA_000838265.1 | (100.0, 100.0)          |  ...  | (100.0, 100.0)          |
 
 ## CRISPR-DA Python Library
 
