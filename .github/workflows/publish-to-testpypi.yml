@@ -34,7 +34,14 @@ jobs:
       with:
         name: prerelease-dists
         path: dist/
-
+    - name: Install locally using distribution files
+      run: python3 -m pip install dist/*.whl
+    - name: Build dependancies
+      run: crispr_da config
+    - name: Get tool version
+      run: |
+        crispr_da -h
+        crispr_da --version
   
 
   publish-to-testpypi:
