@@ -1,24 +1,26 @@
 from pathlib import Path
-
+from .config import get_config
 from . import data
 from . import utils
 from .collection import CRISPRDACollection
 from ete3.parser.newick import write_newick
 
+# TODO: Seperate from main pipeline and add as optional last step for user selected guides
+
 def generate_itol_tree(collection: CRISPRDACollection):
     '''
-    This function will take the Viralcut Collection and generate the tree (newick format).
+    This function will take the CRISPRDA Collection and generate the tree (newick format).
     It will also generate annotation files for each guide allowing you to interactively 
     view off-target sources.
 
     Arguments:
-        collection (Viralcut.Collection): A CRISPRDA collection the contains the processed guides and phylogentic tree
+        collection (CRISPRDA.Collection): A CRISPRDA collection the contains the processed guides and phylogentic tree
 
     Returns:
         None
     '''
 
-    outputDir = Path('/mnt/ssd1/carl/ViralCut/outputs') # TODO: Replace this with user defined dir
+    outputDir = Path(get_config('Cache')) / 'outputs' # TODO: Replace this with user defined dir
     outputDir.mkdir(exist_ok=True)
 
     with open(outputDir / 'tree.nwk', 'w') as outFile:
@@ -123,7 +125,7 @@ def generate_treeviewer_tree(collection: CRISPRDACollection):
     '''
     For testing using treeviewer
     '''
-    outputDir = Path('/mnt/ssd1/carl/ViralCut/outputs') # TODO: Replace this with user defined dir
+    outputDir = Path(get_config('Cache')) / 'outputs' # TODO: Replace this with user defined dir
     outputDir.mkdir(exist_ok=True)
 
     with open(outputDir / 'tree.nwk', 'w') as outFile:

@@ -77,8 +77,7 @@ class CRISPRDACollection:
 
         if self._pickle_filepath is not None:
             if os.path.exists(self._pickle_filepath):
-                if config.VERBOSE:
-                    print(f'Autosaving to: {self._pickle_filepath}')
+                print(f'Autosaving to: {self._pickle_filepath}')
 
                 try:
                     self.to_pickle(self._pickle_filepath)
@@ -86,7 +85,7 @@ class CRISPRDACollection:
                 except Exception as e:
                     raise e
 
-        if not did_auto_save and config.VERBOSE:
+        if not did_auto_save:
             print('Could not autosave CRISPRDACollection')
 
     def _get_guide_key(self, key, ignore_nonexist=False):
@@ -124,14 +123,12 @@ class CRISPRDACollection:
         '''
         tree = self._ncbi_tree
 
-        if config.VERBOSE:
-            print(f'Preparing scores data structure')
+        print(f'Preparing scores data structure')
 
         guides = [y for y, x in self.guides.items() if x.assembly_scores != {}]
 
-        if config.VERBOSE:
-            n = len(list(tree.traverse(strategy="postorder")))
-            print(f'Calculating scores for {n} nodes using depth-first traversal')
+        n = len(list(tree.traverse(strategy="postorder")))
+        print(f'Calculating scores for {n} nodes using depth-first traversal')
 
         for node in tree.traverse("postorder"):
             node.score = defaultdict(lambda : {'mit': -1, 'cfd': -1, 'unique_sites': -1, 'total_sites': -1})

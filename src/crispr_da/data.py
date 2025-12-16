@@ -21,7 +21,7 @@ from importlib import resources
 from io import BytesIO, TextIOWrapper
 from ete3.ncbi_taxonomy.ncbiquery import NCBITaxa
 import traceback
-from . import config
+from .config import get_config
 from . import dataset
 from . import cache
 from . import utils
@@ -29,15 +29,13 @@ from .guide import Guide
 from .collection import CRISPRDACollection
 
 def collection_from_pickle(filename):
-    if config.VERBOSE:
-        print(f'Loading CRISPRDACollection from: {filename}')
+    print(f'Loading CRISPRDACollection from: {filename}')
 
     collection = CRISPRDACollection()
     with open(filename, 'rb') as fp:
         collection = pickle.load(fp)
 
-    if config.VERBOSE:
-        print('Setting autosave path')
+    print('Setting autosave path')
     collection._pickle_filepath = filename
 
     print('Loaded')
@@ -62,12 +60,11 @@ def download_ncbi_genes(gene_ids):
 
     # which means we may not have anything to download.
     if not len(genes_to_download):
-        if config.VERBOSE:
-            print('No genes to download')
+        print('No genes to download')
         return gene_ids
 
     # Notify if only some are being downloaded.
-    if config.VERBOSE and len(gene_ids) != len(genes_to_download):
+    if len(gene_ids) != len(genes_to_download):
         print((
             f'{len(gene_ids) - len(genes_to_download)} of {len(gene_ids)} requested exist in the '
             f'cache already.'
@@ -117,8 +114,7 @@ def download_ncbi_genes(gene_ids):
                 with open(cache_data_report, 'w') as fpW:
                     json.dump(data_report_by_gene_id[header_gene_id], fpW)
 
-                if config.VERBOSE:
-                    print(f'Downloaded to: {cache_dir}')
+                print(f'Downloaded to: {cache_dir}')
 
                 gene_ids_downloaded.append(header_gene_id)
 
@@ -147,12 +143,11 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
 
     # which means we may not have anything to download.
     if not len(accs_to_download):
-        if config.VERBOSE:
-            print('No assemblies to download')
+        print('No assemblies to download')
         return accessions
 
     # Notify if only some are being downloaded.
-    if config.VERBOSE and len(accessions) != len(accs_to_download):
+    if len(accessions) != len(accs_to_download):
         print((
             f'{len(accessions) - len(accs_to_download)} of {len(accessions)} '
             f'requested exist in the cache already.'
@@ -160,9 +155,9 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
 
     # Keep track of which accessions were actually downloaded.
     accessions_downloaded = [x for x in accessions if x not in accs_to_download]
-    for start in range(0, len(accs_to_download), config.NCBI_BATCH_SIZE):
+    for start in range(0, len(accs_to_download), int(get_config('NCBIBatchSize'))):
 
-        success, assembly_files = dataset.get_assembly_by_accession(accs_to_download[start:start+config.NCBI_BATCH_SIZE])
+        success, assembly_files = dataset.get_assembly_by_accession(accs_to_download[start:start+int(get_config('NCBIBatchSize'))])
         if not success:
             raise RuntimeError('Unable to download requested assemblies')
         # Process the downloaded data without writing it to disk, yet.
@@ -199,15 +194,13 @@ def download_ncbi_assemblies(accessions, keep_exts=['fna'], merge=False):
                         with zfp.open(str(file)) as fp, open(cached_file, 'wb') as fpW:
                             fpW.writelines(fp.readlines())
 
-                        if config.VERBOSE:
-                            print(f'Downloaded to: {cached_file}')
+                        print(f'Downloaded to: {cached_file}')
 
                     if not cache_data_report.exists():
                         with open(cache_data_report, 'w') as fpW:
                             json.dump(data_report_by_accession[accs], fpW)
 
-                        if config.VERBOSE:
-                            print(f'Downloaded to: {cache_data_report}')
+                        print(f'Downloaded to: {cache_data_report}')
 
                     accessions_downloaded.append(accs)
 
@@ -324,10 +317,9 @@ def extract_offtargets(input, output, max_open_files=1000):
         tempDir.cleanup()
         return True
     except Exception as e:
-        if config.VERBOSE:
-            print(f'Failed to extract off-targets from: {input}')
-            print(e)
-            return False
+        print(f'Failed to extract off-targets from: {input}')
+        print(e)
+        return False
 
 def extract_offtarges_processing_node(input: Path):
     pattern_forward_offsite = r"(?=([ACGT]{21}[AG]G))"
@@ -361,52 +353,53 @@ def extract_offtargets_mp(input, output, max_open_files=1000, threads=os.cpu_cou
     try:
         # Create multiprocessing pool
         # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.Pool.starmap
-        tempDir = Path('/mnt/ssd1/carl/ViralCut/cross_genome/tmp')
-        with open(str(input), 'r') as inFile:
-            for header, seq in utils.parse_fna(inFile):
-                with tempfile.NamedTemporaryFile('w', delete=False, dir=tempDir.name, suffix='_split') as outFile:
-                    outFile.write(f'{header}\n')
-                    outFile.write(f'{seq}\n')
-
-        pool = multiprocessing.Pool(threads)
-
-        explodedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_split')]
-        pool.starmap(extract_offtarges_processing_node, explodedFiles)
-
-        unsortedFile = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_unsorted')]
-        pool.starmap(extract_offtarges_sorting_node, unsortedFile)
         
-        sortedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_sorted')]
-        while len(sortedFiles) > 1:
-            mergedFile = tempfile.NamedTemporaryFile(delete = False)
-            while True:
-                try:
-                    sortedFilesPointers = [open(file, 'r') for file in sortedFiles[:max_open_files]]
-                    break
-                except OSError as e:
-                    if e.errno == 24:
-                        utils.printer(f'Attempted to open too many files at once (OSError errno 24)')
-                        max_open_files = max(1, int(max_open_files / 2))
-                        utils.printer(f'Reducing the number of files that can be opened by half to {max_open_files}')
-                        continue
-                    raise e
-            with open(mergedFile.name, 'w') as f:
-                f.writelines(heapq.merge(*sortedFilesPointers))
-            for file in sortedFilesPointers:
-                file.close()
-            sortedFiles = sortedFiles[max_open_files:] + [mergedFile.name]
+        with tempfile.TemporaryDirectory() as td:
+            tempDir = Path(td)
+            with open(str(input), 'r') as inFile:
+                for header, seq in utils.parse_fna(inFile):
+                    with tempfile.NamedTemporaryFile('w', delete=False, dir=tempDir.name, suffix='_split') as outFile:
+                        outFile.write(f'{header}\n')
+                        outFile.write(f'{seq}\n')
 
-        shutil.move(sortedFiles[0], output)
-        # tempDir.cleanup()
-        for file in tempDir.glob('*'):
-            os.unlink(file)
-        return True
+            pool = multiprocessing.Pool(threads)
+
+            explodedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_split')]
+            pool.starmap(extract_offtarges_processing_node, explodedFiles)
+
+            unsortedFile = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_unsorted')]
+            pool.starmap(extract_offtarges_sorting_node, unsortedFile)
+            
+            sortedFiles = [[Path(file)] for file in glob.glob(f'{tempDir.name}/*_sorted')]
+            while len(sortedFiles) > 1:
+                mergedFile = tempfile.NamedTemporaryFile(delete = False)
+                while True:
+                    try:
+                        sortedFilesPointers = [open(file, 'r') for file in sortedFiles[:max_open_files]]
+                        break
+                    except OSError as e:
+                        if e.errno == 24:
+                            utils.printer(f'Attempted to open too many files at once (OSError errno 24)')
+                            max_open_files = max(1, int(max_open_files / 2))
+                            utils.printer(f'Reducing the number of files that can be opened by half to {max_open_files}')
+                            continue
+                        raise e
+                with open(mergedFile.name, 'w') as f:
+                    f.writelines(heapq.merge(*sortedFilesPointers))
+                for file in sortedFilesPointers:
+                    file.close()
+                sortedFiles = sortedFiles[max_open_files:] + [mergedFile.name]
+
+            shutil.move(sortedFiles[0], output)
+            # tempDir.cleanup()
+            for file in tempDir.glob('*'):
+                os.unlink(file)
+            return True
     except Exception as e:
-        if config.VERBOSE:
-            print(f'Failed to extract off-targets from: {input}')
-            print(traceback.format_exc())
-            print(e)
-            return False
+        print(f'Failed to extract off-targets from: {input}')
+        print(traceback.format_exc())
+        print(e)
+        return False
 
 def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
     '''Extract offtargets and create ISSL index for each FNA file in the provided accession
@@ -423,10 +416,10 @@ def create_issl_indexes(accessions, force=True, processors=os.cpu_count()):
     if isinstance(accessions, str):
         accessions = [accessions]
 
-    with resources.path('crisprda.resources', 'slice-4-5.txt') as resource:
+    with resources.path('crispr_da.resources', 'slice-4-5.txt') as resource:
         sliceFile = resource
 
-    with resources.path('crisprda.resources', 'ISSLCreateIndex') as resource:
+    with resources.path('crispr_da.resources', 'ISSLCreateIndex') as resource:
         isslCreateIndexBin = resource
 
     # remove accessions if the index already exists
@@ -499,8 +492,8 @@ def get_accession_from_tax_id(tax_ids):
     '''
     accession = ['-'] * len(tax_ids)
 
-    for i in range(0, len(tax_ids), config.NCBI_BATCH_SIZE):
-        batch = tax_ids[i:i+config.NCBI_BATCH_SIZE]
+    for i in range(0, len(tax_ids), int(get_config('NCBIBatchSize'))):
+        batch = tax_ids[i:i+int(get_config('NCBIBatchSize'))]
         # Check GenBank first
         success, reports = dataset.get_genbank_dataset_reports_by_taxon(batch)
         if not success:
@@ -539,7 +532,7 @@ def get_tax_ids_from_accessions(accessions, uniq=True):
             report = json.load(inFile)
         if 'taxId' in report['organism']:
             tax_ids.append(report['organism']['taxId'])
-        elif config.VERBOSE:
+        else:
             print(f'Could not find taxId of {accs}')
     return tax_ids
 
@@ -559,7 +552,7 @@ def get_name_from_accessions(accessions):
             report = json.load(inFile)
         if 'taxId' in report['organism']:
             names.append(report['organism']['organismName'])
-        elif config.VERBOSE:
+        else:
             print(f'Could not find taxId of {accs}')
     return names
 
@@ -592,7 +585,7 @@ def extract_guides(id):
     return guides
 
 def create_collection(id, guides):
-    ''' this method will take a gene id and guides and create a new viral cut collection'''
+    ''' this method will take a gene id and guides and create a new CRISPR-DA collection'''
     collection = CRISPRDACollection()
     collection.target = cache.get_file(id, 'data_report.json')
     for guide, header, target30, start, strand in guides:

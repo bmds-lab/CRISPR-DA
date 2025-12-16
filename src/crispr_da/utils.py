@@ -82,7 +82,6 @@ def run_command(command, std_out=subprocess.DEVNULL, std_err=subprocess.DEVNULL)
             if std_err != subprocess.DEVNULL:
                 std_err.close()   
     except Exception as e:
-        if config.VERBOSE:
-            print(f'Failed to run: {" ".join([str(x) for x in command])}')
+        print(f'Failed to run: {" ".join([str(x) for x in command])}')
         success = False
     return success
