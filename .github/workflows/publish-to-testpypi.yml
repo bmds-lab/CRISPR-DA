@@ -19,16 +19,11 @@ jobs:
     - run: |
         conda info
         conda list
-    - name: Testing install software version
-      run: |
-        conda init
-        conda activate crispr-da
-        conda info
         conda env list
+        conda activate crispr-da
         cmake --version
         make --version
         which python3
-        - name: Testing install software version
     - name: Follow up withoyt activate
       run: |
         conda info
