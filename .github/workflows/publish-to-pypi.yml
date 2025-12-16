@@ -66,6 +66,8 @@ jobs:
         name: release-dists
         path: dist/
     - name: Publish distribution to PyPI
+      with:
+        skip-existing: true
       uses: pypa/gh-action-pypi-publish@release/v1
 
   install-from-pypi:
