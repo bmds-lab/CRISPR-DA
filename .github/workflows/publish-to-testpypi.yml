@@ -70,7 +70,7 @@ jobs:
         repository-url: https://test.pypi.org/legacy/
 
   install-from-testpypi:
-    name: Publish Python distribution from TestPyPI
+    name: Install Python distribution from TestPyPI
     needs:
       - publish-to-testpypi
     runs-on: ubuntu-latest
@@ -78,6 +78,9 @@ jobs:
       run:
         shell: bash -el {0}
     steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
     - uses: conda-incubator/setup-miniconda@v3
       with:
           activate-environment: crispr-da
