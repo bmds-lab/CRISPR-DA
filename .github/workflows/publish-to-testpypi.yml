@@ -15,7 +15,8 @@ jobs:
       with:
           activate-environment: crispr-da
           environment-file: environment.yml
-          auto-activate: false
+          auto-activate-base: false
+          conda-remove-defaults: true
     - name: Testing install software version
       run: |
         conda info
