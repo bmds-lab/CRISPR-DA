@@ -16,6 +16,12 @@ jobs:
         activate-environment: crispr-da
         environment-file: environment.yml
         auto-activate: true
+    - name: Testing install software version
+      run: >-
+        conda info
+        cmake --version
+        make --version
+        which python3
     - name: Install pypa/build
       run: python3 -m pip install build
     - name: Build a binary wheel and a source tarball
