@@ -29,7 +29,7 @@ jobs:
       id: pip-cache
       run: |
         echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-    - name: pip cache
+    - name: Restore pip cache
       uses: actions/cache@v4
       with:
         path: ${{ steps.pip-cache.outputs.dir }}
@@ -90,7 +90,8 @@ jobs:
       with:
           activate-environment: crispr-da
           environment-file: environment.yml
-          auto-activate-base: "false"
+          auto-activate-base: false
+          conda-remove-defaults : true
     - name: Test installed tools
       run: |
         conda info
