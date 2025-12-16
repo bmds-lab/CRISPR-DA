@@ -17,6 +17,7 @@ jobs:
           auto-activate-base: "false"
     - name: Testing install software version
       run: |
+        conda init
         conda activate crispr-da
         conda info
         conda env list
