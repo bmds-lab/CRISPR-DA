@@ -37,7 +37,7 @@ jobs:
     - name: Install locally using distribution files
       run: python3 -m pip install dist/*.whl
     - name: Build dependancies
-      run: crispr_da config
+      run: crispr_da config -d
     - name: Get tool version
       run: |
         crispr_da -h
