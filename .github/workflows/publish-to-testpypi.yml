@@ -13,9 +13,9 @@ jobs:
         persist-credentials: false
     - uses: conda-incubator/setup-miniconda@v3
       with:
-        environment-file: environment.yml
-        auto-activate: true
-        activate-environment: crispr-da
+          activate-environment: crispr-da
+          environment-file: environment.yml
+          auto-activate: false
     - name: Testing install software version
       run: |
         conda info
