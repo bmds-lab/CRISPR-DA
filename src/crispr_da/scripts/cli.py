@@ -9,6 +9,7 @@ def main():
     subParsers = parser.add_subparsers(dest='command', title='subcommands')
 
     configParser = subParsers.add_parser('config', help='Run config')
+    configParser.add_argument('-d', '--default', help='Create config files with defaults', action='store_true', dest='default')
     configParser.add_argument('-f', '--force', help='Force rebuild bins', action='store_true', dest='force')
 
     analysisParser = subParsers.add_parser('analyse', help='Run analysis')
@@ -21,7 +22,7 @@ def main():
 
     args = parser.parse_args()
     if args.command == 'config':
-        run_config(args.force)
+        run_config(args.force, args.default)
     elif args.command == 'analyse':
         run_analysis(args.target_accession, args.target_gene_id, args.evaluation_accessions, args.evaluation_root_tax_id)
     else:

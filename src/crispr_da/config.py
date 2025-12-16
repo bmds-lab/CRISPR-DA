@@ -20,7 +20,7 @@ def secure_config_opener(path, flags):
     return os.open(path, flags, 0o600)
 
 # TODO: Add more verbose print statements
-def run_config(force=False):
+def run_config(force=False, default=False):
     global config, configFile
     # Build ISSL bin
     with as_file(files('crispr_da').joinpath('resources')) as fp:
@@ -41,21 +41,25 @@ def run_config(force=False):
         run(f"cmake --build {build_dir}", shell=True, check=True, stdout=DEVNULL, stderr=DEVNULL)
         run(f"cmake --install {build_dir} --prefix {resource_dir}", shell=True, check=True, stdout=DEVNULL, stderr=DEVNULL)
         shutil.rmtree(str(build_dir))
+        print("Sucessfully built")
 
     # Get config.ini
     if 'Main' not in config.sections():
         config.add_section('Main')
-    # Set cache location
-    print('Enter a new value or hit enter to use the value in the sqaure brackets')
-    cacheLocation = input(f'Cache location [{config.get('Main', 'Cache', fallback='')}]: ')
-    if len(cacheLocation) > 0:
-        config.set('Main','Cache', cacheLocation)
-    
-    # Set bactch size
-    batchSizeNCBI = input(f'NCBI API request batch size (Recommended - 100) [{config.get('Main', 'NCBIBatchSize', fallback='')}]: ')
-    if len(batchSizeNCBI) > 0:
-        config.set('Main','NCBIBatchSize', batchSizeNCBI)
-
+    if not default:
+        # Set cache location
+        print('Enter a new value or hit enter to use the value in the sqaure brackets')
+        cacheLocation = input(f'Cache location [{config.get('Main', 'Cache', fallback='')}]: ')
+        if len(cacheLocation) > 0:
+            config.set('Main','Cache', cacheLocation)
+        
+        # Set bactch size
+        batchSizeNCBI = input(f'NCBI API request batch size (Recommended - 100) [{config.get('Main', 'NCBIBatchSize', fallback='')}]: ')
+        if len(batchSizeNCBI) > 0:
+            config.set('Main','NCBIBatchSize', batchSizeNCBI)
+    else:
+        config.set('Main','Cache', Path.home() / 'CRISPR-DA-Cache')
+        config.set('Main','NCBIBatchSize', "100")
 
     # TODO: Move NCBI API key here (save to hidden file or keep as export)
 
