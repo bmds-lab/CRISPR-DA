@@ -58,7 +58,7 @@ def run_config(force=False, default=False):
         if len(batchSizeNCBI) > 0:
             config.set('Main','NCBIBatchSize', batchSizeNCBI)
     else:
-        config.set('Main','Cache', Path.home() / 'CRISPR-DA-Cache')
+        config.set('Main','Cache', str(Path.home() / 'CRISPR-DA-Cache'))
         config.set('Main','NCBIBatchSize', "100")
 
     # TODO: Move NCBI API key here (save to hidden file or keep as export)
