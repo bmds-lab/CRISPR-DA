@@ -17,7 +17,7 @@ jobs:
         environment-file: environment.yml
         auto-activate: true
     - name: Testing install software version
-      run: >-
+      run: |
         conda info
         cmake --version
         make --version
