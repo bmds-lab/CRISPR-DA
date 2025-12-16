@@ -13,8 +13,12 @@ jobs:
         persist-credentials: false
     - uses: conda-incubator/setup-miniconda@v3
       with:
+          activate-environment: crispr-da
           environment-file: environment.yml
           auto-activate-base: "false"
+    - run: |
+        conda info
+        conda list
     - name: Testing install software version
       run: |
         conda init
