@@ -11,15 +11,25 @@ jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
     - uses: actions/checkout@v6
       with:
         persist-credentials: false
-    - name: Set up Python
-      uses: actions/setup-python@v6
+    - uses: conda-incubator/setup-miniconda@v3
       with:
-        python-version: "3.x"
+          activate-environment: crispr-da
+          environment-file: environment.yml
+          auto-activate-base: "false"
+    - name: Test installed tools
+      run: |
+        conda info
+        conda env list
+        cmake --version
+        make --version
+        which python3
     - name: Install pypa/build
       run: python3 -m pip install build
     - name: Build a binary wheel and a source tarball
@@ -27,22 +37,27 @@ jobs:
     - name: Store the distribution packages
       uses: actions/upload-artifact@v5
       with:
-          name: release-dists
-          path: dist/
+        name: release-dists
+        path: dist/
+    - name: Install locally using distribution files
+      run: python3 -m pip install dist/*.whl
+    - name: Build dependancies
+      run: crispr_da config -d
+    - name: Get tool version
+      run: |
+        crispr_da -h
+        crispr_da --version
 
   publish-to-pypi:
     name: Publish Python distribution to PyPI
     needs:
     - build
     runs-on: ubuntu-latest
-
     environment:
       name: pypi
       url: https://pypi.org/p/crispr-da
-
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
-    
     steps:
     - name: Download all the dists
       uses: actions/download-artifact@v6
@@ -51,3 +66,37 @@ jobs:
         path: dist/
     - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
+
+  install-from-pypi:
+    name: Install Python distribution from PyPI
+    needs:
+      - publish-to-pypi
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+    - uses: conda-incubator/setup-miniconda@v3
+      with:
+          activate-environment: crispr-da
+          environment-file: environment.yml
+          auto-activate-base: false
+          conda-remove-defaults : true
+    - name: Test installed tools
+      run: |
+        conda info
+        conda env list
+        cmake --version
+        make --version
+        which python3
+    - name: Install from PyPI
+      run: pip install crispr-da
+    - name: Build dependancies
+      run: crispr_da config -d
+    - name: Get tool version
+      run: |
+        crispr_da -h
+        crispr_da --version
